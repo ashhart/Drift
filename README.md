@@ -1,5 +1,7 @@
 # Drift
 
+![Blue and gold figures connected by a stream of geometric forms.](docs/assets/drift.png)
+
 **A memory link between models.**
 
 An agent can write a handover. Drift explores another route: let its partner read translated working memory.
