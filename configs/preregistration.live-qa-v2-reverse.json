@@ -1,0 +1,44 @@
+{
+  "name": "live-qwen-to-glm-qa-v2-reverse",
+  "label": "PREREGISTERED before any validation or evaluation number existed for this direction (4 hand-written exploratory cases had been run and are disclosed in docs/agent-progress.md)",
+  "question": "Can GLM-5.3, served by the running vLLM server on the Sparks, answer a factual question about a passage that only Qwen3.8 (Studio, oMLX) has read, when the only thing it receives is Qwen's K/V translated into its own MLA latent cache?",
+  "evaluation_set": {
+    "generator": "scripts/live/gen_corpus.py --n 40 --seed 4242 --heldout-vocab (GLM-written prose from randomised fact sheets; names and places disjoint from every training list)",
+    "item": "one question per passage about ONE fact that survived into the prose; kind priority: code, person, time, ingredient, animal, colour, count, weight, room, day; fixed question template per kind (scripts/live/qa_eval.py)",
+    "exclusions": "a passage is dropped only if no listed fact survived verbatim or tokenization does not round-trip; decided before any model output is seen",
+    "reuse": "the same 40 held-out-vocabulary passages as the forward evaluation (local/live/gen_eval.jsonl, sha256 in configs/frozen.live-qa-v2.json). They were never used to fit or tune the reverse translator and no reverse-direction output on them exists at commit time."
+  },
+  "translator": "stacked-level ridge Qwen->GLM with variance restoration (local/live/stacked2_rev.npz, fitted on corpus2 train rows only). gain power in {1.0, 1.5} and memory copies in {4, 12} are chosen ONLY on validation passages (local/live/gen_val.jsonl); frozen with sha256 before the evaluation run, which is run once.",
+  "mechanism": "TelepathyGlm53Connector (subclass of the owner's handoff connector) overwrites the fp8_ds_mla latent pages of a placeholder span in the request's own blocks after the engine step that computed them; the entries are tiled `copies` times across the span (NoPE attention: a log(copies) prior). Recurrent KDA state, pooled selector keys and the drafter window come from the placeholder tokens. DFlash speculative decoding and TP=2 stay on.",
+  "conditions": {
+    "no_memory": "question only",
+    "placeholders_only": "placeholder span, nothing written",
+    "telepathy": "Qwen K/V of the passage -> translator -> written into GLM's cache",
+    "wrong_memory": "same, with the next item's memory (cyclic)",
+    "own_latents": "control: GLM's own latents of the passage written back the same way (needs the text; not the telepathy channel)",
+    "text_in_prompt": "control: the passage pasted into the prompt"
+  },
+  "decoding": "greedy (temperature 0), non-thinking chat template, 160 new tokens",
+  "metric": "exact match: the fact's value appears in the answer (case-insensitive substring)",
+  "pass_criteria": {
+    "C1_content_specific": "EM(telepathy) - EM(wrong_memory) >= 0.25 AND one-sided exact sign test on discordant items p < 0.05",
+    "C2_useful": "EM(telepathy) >= 0.5 * EM(own_latents)",
+    "C0_valid": "every telepathy/wrong/own request reports a completed write on rank 0; items whose write failed closed are retried once, then counted as misses",
+    "verdict": "PASSED if C1 and C2; PARTIAL if C1 only; otherwise FAILED"
+  },
+  "reported_regardless": [
+    "EM per condition and per fact kind",
+    "every question, reference and answer",
+    "answer log-prob per condition",
+    "timings",
+    "translator validation error",
+    "placeholder layout per request",
+    "write failures"
+  ],
+  "known_limits": [
+    "single-fact lookup on ~100-word passages",
+    "the reader's own prompt must be shorter than 128 tokens on this build (scheduler step boundary)",
+    "memory is a prefix span, no learned gate",
+    "writer is 4-bit MLX; reader cache is fp8"
+  ]
+}

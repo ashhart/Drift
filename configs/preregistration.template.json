@@ -1,0 +1,20 @@
+{
+  "schema": "telepathy.prereg.v1",
+  "written_before_any_heldout_run": true,
+  "pair": {"model_a": "UNRESOLVED", "model_b": "UNRESOLVED", "registry_entries": ["UNRESOLVED", "UNRESOLVED"]},
+  "parity": {
+    "level1_fp32_tolerance": 2e-5,
+    "level2_real_weight_tolerance": "UNRESOLVED (set before looking at any real-weight number)",
+    "level2_error_distribution_reported": true
+  },
+  "translator": {"pool_width": "UNRESOLVED", "kind": "ridge", "rank": 64, "level_maps_from": "training_and_development_only"},
+  "behavior_training": {"lambda_reg": 1.0, "lambda_kl": 1.0, "steps": "UNRESOLVED", "learning_rate": 1e-3, "seed": 11, "stop_rule": "fixed_steps"},
+  "E1": {"units_min": 100, "floor": "no_context", "ceiling": "receiver_reread", "baseline": "equal_length_summary", "pass_bar": "above_floor_paired_ci95_lower_bound_gt_0"},
+  "E2": {"secret_units_min": 100, "controls": ["no_context", "hard_off", "wrong_secret", "time_shuffled", "random_map", "oracle"], "pass_bar": "paired_ci95_lower_bound_gt_0_and_hard_off_at_floor"},
+  "E3": {"arms": ["solo_a", "solo_b", "coupled", "text_pair"], "budget": {"max_local_tokens": "UNRESOLVED", "max_wall_seconds": "UNRESOLVED"}},
+  "E4": {"arms": ["duo_text", "coupled_mailbox"], "peer_reads_allowed": true, "hidden_tests_root": "UNRESOLVED (outside every clone)"},
+  "mailbox": {"ttl": 8, "slots": 8, "per_epoch_cap": 2, "attention_threshold": 0.01, "incorporation_rule": "active_correct_and_ablated_incorrect_with_fork_before_exposure"},
+  "detector_thresholds": {"repetition_rate_4gram": "UNRESOLVED", "mass_oscillation": "UNRESOLVED", "gate_saturation": [1e-4, 0.99]},
+  "series_rules_hash": null,
+  "sha256_of_this_file_recorded_in_run_manifest": true
+}

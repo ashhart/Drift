@@ -1,0 +1,28 @@
+{
+  "name": "live-glm-to-qwen-qa-v2",
+  "label": "PREREGISTERED before the evaluation passages were generated and before the v2 translator was fitted",
+  "question": "Can Qwen3.8 (Studio, oMLX) answer a factual question about a passage that only GLM-5.3 (Sparks, vLLM) has read, when the only thing it receives is GLM's cache latents translated into its own KV cache?",
+  "evaluation_set": {
+    "generator": "scripts/live/gen_corpus.py --n 40 --seed 4242 --heldout-vocab (GLM-written prose from randomised fact sheets; names and places disjoint from every training list)",
+    "item": "one question per passage about ONE fact that survived into the prose; kind priority: code, person, time, ingredient, animal, colour, count, weight, room, day; fixed question template per kind (scripts/live/qa_eval.py)",
+    "exclusions": "a passage is dropped only if no listed fact survived verbatim or tokenization does not round-trip; decided before any model output is seen"
+  },
+  "translator": "stacked-level ridge GLM->Qwen with variance restoration (scripts/live/fit_stacked_stream.py). Ridge and gain power are chosen ONLY on validation passages generated with --seed 11 that are excluded from fitting; frozen (sha256 recorded) before the evaluation run. The evaluation is run once.",
+  "conditions": {
+    "no_memory": "question only",
+    "telepathy": "GLM latents of the passage -> translator -> injected as KV prefix into a fresh Qwen cache (recurrent state fresh, zero selector keys), then the question",
+    "wrong_memory": "same, with the next item's memory (cyclic)",
+    "own_kv_only": "control: Qwen's own KV of the passage injected the same way (needs the text; not the telepathy channel)",
+    "text_in_prompt": "control: the passage pasted into the prompt (the Duo/text baseline)"
+  },
+  "decoding": "greedy, non-thinking chat template, 64 new tokens",
+  "metric": "exact match: the fact's value appears in the answer (case-insensitive substring)",
+  "pass_criteria": {
+    "C1_content_specific": "EM(telepathy) - EM(wrong_memory) >= 0.25 AND one-sided exact sign test on discordant items p < 0.05",
+    "C2_useful": "EM(telepathy) >= 0.5 * EM(own_kv_only)",
+    "verdict": "PASSED if C1 and C2; PARTIAL if C1 only; otherwise FAILED"
+  },
+  "reported_regardless": ["EM per condition and per fact kind", "every question, reference and answer", "answer log-prob per condition", "timings", "translator validation error"],
+  "known_limits": ["single-fact lookup on ~100-word passages, not reasoning", "one direction (GLM->Qwen)", "fact kinds overlap with the programmatic training passages, values and names do not",
+                   "reader is 4-bit MLX; writer cache is fp8"]
+}

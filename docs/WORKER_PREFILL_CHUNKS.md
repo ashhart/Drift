@@ -1,0 +1,9 @@
+# Bounded retained-worker prefill
+
+The installed OMP and stock Duo deterministic fixture produced a child initial prompt of 6,667 tokens with the real Qwen checkpoint tokenizer, three system blocks and two tools. The existing retained worker rejected that append at its 4,096-token native-call limit before making a native continuation call. This was a tokenizer-only reproduction using public synthetic task content, not a model generation or a previous model prompt.
+
+The backend now admits the complete codec suffix against the unchanged session budget, then sends bounded native continuation calls of at most 4,096 IDs. It preserves the exact token order and cached prefix, counts each successful chunk, and holds the existing native transaction across the whole append so foreign activation operations cannot interleave. Cancellation, deadline expiry or a failed chunk poisons the state; partial work cannot become a successful own-input acknowledgement. A native pending stop is still consumed once by the existing continuation path.
+
+The reproduced 6,667-token append becomes 4,096 plus 2,571 tokens, with 6,667 accounted input tokens. A public random native GatedDeltaNet component compared that split with a one-shot prefill and obtained maximum absolute error zero both across the prefill output and on the next decode, using a 128 MiB device cap and no pretrained weights. This component result does not establish full-checkpoint numerical parity or successful stock Duo collaboration.
+
+The 4,096 native-call bound, session token budget, input byte limits, advertised context size and enclosing supervisor deadline remain unchanged. Later control snapshots and tool results still consume the same cumulative budget and may legitimately reach it; the worker does not truncate history or renew its deadline. The next gate is a separately dispatched bounded native child run with exact source pins and cleanup evidence.

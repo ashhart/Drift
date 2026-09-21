@@ -1,0 +1,13 @@
+{
+  "reference_kit": "TESTED_CPU_SEE_VALIDATION",
+  "M-1_contracts": "BLOCKED_OWNER_INPUTS (inventory done; checkpoints, budgets, SERIES.md, sandbox users pending)",
+  "M0_identity_real_checkpoints": "LEVEL1_PASSED_TINY_CONFIGS; real checkpoints NOT_RUN",
+  "M0_same_family_replication": "WAIVED_BY_OWNER (OD2)",
+  "M1_cross_family": "MECHANICS_PASSED_TOYS; formal E1/E2 NOT_RUN",
+  "M2_live_coupling": "IN_PROCESS_PASSED_TOYS_AND_TINY_PAIR; E3 NOT_RUN",
+  "M3_mailbox_science": "MECHANICS_PASSED; incorporation result NOT_RUN",
+  "M4_mlx_mcdma": "MLX adapters IN_PROGRESS; MCDMA BLOCKED_PENDING_LOCAL_INTEGRATION",
+  "M5_duel": "SERVICE_AND_WORKSPACE_PASSED; duel NOT_RUN; plugin IN_PROGRESS",
+  "M6_competition": "NOT_RUN",
+  "hive_stage": "MECHANICS_PASSED (pool.v1, translators, enrollment, multi-writer bank); entry gate NOT_MET"
+}

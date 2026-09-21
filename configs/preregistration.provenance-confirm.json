@@ -1,0 +1,18 @@
+{
+  "name": "drift-provenance-confirmation-lookup-correction",
+  "label": "PREREGISTERED on 2026-09-21 before the confirmation passages were generated and before any output of this evaluation existed",
+  "background": "The held-out provenance evaluation (configs/preregistration.provenance-heldout.json) returned protocol FAILED and training ADDS. A POST-HOC, exploratory arm on the same 120 items then showed that the Test A lookup correction ALONE (local/live/v4_correction.safetensors, frozen on 2026-09-20, never trained on split-knowledge tasks) reached pooled 0.925 against 0.442 untrained, above the provenance-trained arm (0.858). Because that arm was chosen after seeing results on those items, it is confirmed here on fresh passages.",
+  "design": {
+    "passages": "scripts/live/gen_corpus.py --n 230 --seed 7412 --heldout-vocab --require code,person,weight,colour, generated AFTER this file is committed; items by scripts/live/d1_items.py, 40 per type, INVALID below 30 per type",
+    "harness": "scripts/live/provenance_eval.py unchanged; frozen choices as configs/frozen.provenance-heldout.json except that the 'trained' artefact is local/live/v4_correction.safetensors (sha256 93eba9fc..., recorded in full in configs/frozen.provenance-confirm.json)",
+    "arms": "d1b_untrained, protocol_untrained (v3), protocol_trained (= v3 + the lookup correction), wrong_memory, own_kv, no_memory, text_both"
+  },
+  "hypotheses": {
+    "K1_correction_fixes_provenance": "pooled EM(protocol_trained) - pooled EM(protocol_untrained) >= 0.25 AND exact one-sided sign test on discordant items p < 0.05",
+    "K2_conjunction": "conj EM(protocol_trained) >= 0.60",
+    "K3_reaches_own_cache": "pooled EM(protocol_trained) >= pooled EM(own_kv) - 0.05",
+    "K4_still_specific": "pooled EM(wrong_memory) <= 0.10"
+  },
+  "outcome_labels": "PASSED if K1, K2, K3 and K4; PARTIAL if K1 and K4; FAILED otherwise.",
+  "limits": "One pair, one direction, three synthetic split-knowledge task kinds, passages of about 120 tokens. Says nothing about long documents, where translated memory still confuses similar facts (docs/FRONTIER.md)."
+}

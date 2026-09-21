@@ -1,0 +1,33 @@
+{
+  "name": "omp-drift",
+  "version": "0.1.0",
+  "description": "Control-plane UI for Drift runs: typed lifecycle commands, a live board and a status line over the local worker service.",
+  "type": "module",
+  "private": true,
+  "keywords": [
+    "omp-plugin",
+    "omp",
+    "drift",
+    "multi-agent"
+  ],
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "omp": {
+    "name": "Drift",
+    "description": "Drive a Drift run (frozen models sharing KV-cache memory) through typed lifecycle commands with a live board.",
+    "extensions": [
+      "./src/omp.ts"
+    ],
+    "version": "0.1.0"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "preregistration": "configs/preregistration.live-qa-v2.json",
+  "translator_sha256": "70b973e2582956c68a2a4dc9645384a6a21c002e2453b35723052c608cc5660c",
+  "translator": {"kind": "stacked-level ridge GLM->Qwen", "ridge": 0.03, "fit_rows": 267114, "validation_rel_rmse_mean": 0.588, "corpus2_sha256_prefix": "e8f8d05b9c3efed1"},
+  "gain_power": 1.5,
+  "chosen_on": "30 validation passages (seed 11/12, training vocabulary, excluded from fitting): EM 0.70 / 0.833 / 0.80 at gain power 1.0 / 1.5 / 2.0; own_kv_only 0.833, text 0.967, no_memory 0, wrong_memory 0",
+  "evaluation_passages_sha256": "fe4df283f9ef8042f46a8dd40ba92ef55b84678cb6fd4f14c14bdfc6b48fd18c",
+  "note": "generator was called with --n 44; only indices 0..39 are used, which are the preregistered --n 40 fact sheets (seeded per index). No evaluation passage had been shown to either model through the telepathy channel when this file was committed."
+}

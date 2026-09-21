@@ -1,0 +1,7 @@
+# Explicit API owner lifetime allowance
+
+The retained-worker owner launcher accepts an explicitly supplied wall limit up to 180 seconds, keeping its 60-second default. The GLM owner accepts an explicitly pinned worker deadline up to 180,000 milliseconds, allowing the existing 170,000-millisecond API worker profile inside its separately supervised 180-second envelope. This changes two admission ceilings only; it does not select those larger budgets automatically or modify worker token, byte, turn or generation limits.
+
+The existing absolute deadlines, cleanup reserves, owner EOF and abort handling, private evidence rules and child reaping remain unchanged. Values above 180 seconds are rejected before owner initialization. The GLM owner requires an integer deadline and continues rejecting booleans and floating-point milliseconds. Callers remain responsible for reserving cleanup time in the enclosing supervisor; an admitted 180,000-millisecond worker deadline is not evidence that such a worker fits a 180-second envelope.
+
+Real supervised synthetic subprocess regressions cover explicit retained-worker 180-second admission, GLM 170,000- and 180,000-millisecond admission, immediate clean close, owner abort/EOF poisoning and reaping, invalid upper bounds and the unchanged default. Existing short-deadline regressions still exercise deadline expiration without waiting three minutes. No model, remote host, activation publication or native inference was used, and this prerequisite does not qualify a Drift-linked project.

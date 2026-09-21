@@ -1,0 +1,35 @@
+{
+  "name": "frozen choices for configs/preregistration.provenance-confirm.json",
+  "frozen_on": "2026-09-21, before any held-out output existed",
+  "artifacts": {
+    "forward_base": "local/live/stacked3.npz",
+    "forward_fanout": "local/live/fanout3.npz",
+    "provenance_correction": "local/live/v4_correction.safetensors",
+    "passages": "local/live/gen_prov_confirm.jsonl"
+  },
+  "sha256": {
+    "forward_base": "0ff3a5053bc630336a77119b67ac7f34168ce3286b0937f0aba3e78d44cbac5b",
+    "forward_fanout": "570111c92300ac5355ae97c6382aab6dc2e128a9f57e3b0371d8fe6a584285cf",
+    "provenance_correction": "93eba9fcd1a6fdb81d287bc280e347682a00fa64176d26c437008470e7fc5e6c",
+    "passages": "ac864be870aea58a18710e8c33bf3ec580fad1cba55b230c89bc0738ab748b9b"
+  },
+  "forward_gain_power": 1.5,
+  "max_new_tokens": 96,
+  "minimum_items_per_type": 30,
+  "question_suffix": " Answer in one short sentence, giving the value(s) directly.",
+  "link_prompt_d1": "You are linked to another AI model through a shared memory. A document it has read is in your memory, not in this chat; you were never shown it as text. Use what you recall from that shared memory together with what is in this chat. If the shared memory does not contain what is needed, say that it is missing.",
+  "link_prompt_protocol": "You are linked to another AI model through a shared memory. Your partner's document is in your memory, not in this chat; you were never shown it as text. The user message contains YOUR OWN note. Keep the two sources apart and use both.",
+  "thresholds": {
+    "H1_conj_gain": 0.3,
+    "H2_conj_target": 0.6,
+    "H2_wrong_memory_max": 0.1,
+    "H3_no_cost": 0.1,
+    "H4_training_gain": 0.05
+  },
+  "thresholds_confirm": {
+    "K1_gain": 0.25,
+    "K2_conj": 0.6,
+    "K3_gap": 0.05,
+    "K4_wrong": 0.1
+  }
+}

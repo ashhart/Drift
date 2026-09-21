@@ -1,0 +1,9 @@
+{
+  "preregistration": "configs/preregistration.live-qa-v2-reverse.json",
+  "translator_sha256": "1d0c4cd70c2d5dff2b53fbba698e5fb496972e59138eebb973d47067f5e1cb49",
+  "translator": {"kind": "stacked-level ridge Qwen->GLM", "ridge": 0.03, "fit_rows": 267114, "validation_rel_rmse_mean": 0.609},
+  "gain_power": 1.0,
+  "copies": 12,
+  "chosen_on": "15 validation passages (local/live/gen_val.jsonl): EM telepathy/own_latents = 0.933/0.933 (copies 12, gain 1.5), 1.0/1.0 (copies 12, gain 1.0), 0.867/0.733 (copies 4, gain 1.5); none/placeholders/wrong = 0 in all three; no write failures",
+  "note": "own_latents varies between identical runs (0.933 vs 1.0 at copies 12): the serving stack is not bit-deterministic (speculative decoding, batching). No reverse-direction output on the evaluation passages existed when this file was committed."
+}

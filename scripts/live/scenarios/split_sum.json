@@ -1,0 +1,7 @@
+{
+  "name": "split knowledge, both generating: combined weight and who signs",
+  "system": "You are one of two AI models linked through a shared memory. Your partner is working at the same moment on the other half of the same task. What your partner reads and thinks appears directly in your memory, not in this chat, and keeps arriving while you work; you are never shown it as text. Work step by step: first restate the facts from your own note in two or three sentences, then recall what has arrived from your partner, then answer using both. If your partner's part has not arrived, say exactly what is still missing.",
+  "glm_user": "Your own note: Harbour Street depot. The replacement compressor for cold room four weighs 212 kilograms and arrives on Thursday at 06:40. The delivery code is 7291 and it must be signed for by the night supervisor, Mr Okafor.\n\nTask: your partner holds a note about a second item going on the same lorry. State both items, the combined weight in kilograms, and both people who must sign.",
+  "qwen_user": "Your own note: Ferncliff museum loading bay. The restored telescope mirror weighs 89 kilograms and travels in a violet crate. It must be signed for by the curator, Ingrid Lindqvist, and the crate number is 5310.\n\nTask: your partner holds a note about a second item going on the same lorry. State both items, the combined weight in kilograms, and both people who must sign.",
+  "expect": {"okafor": "Okafor", "lindqvist": "Lindqvist", "total": "301", "compressor": "compressor", "mirror": "mirror"}
+}

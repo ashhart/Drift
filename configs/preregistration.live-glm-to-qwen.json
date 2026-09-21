@@ -1,0 +1,28 @@
+{
+  "name": "live-glm-to-qwen-heldout-v1",
+  "label": "PREREGISTERED before any transfer number was computed",
+  "writer": "GLM-5.3-Flash on the Sparks (vLLM, fp8_ds_mla cache, latents exported by the owner's handoff connector)",
+  "reader": "Qwen3.8-Flash-Next MLX 4-bit on the Studio (oMLX runtime, cache seam)",
+  "translators": "ridge, pool.v1 width 512, 11 levels, fitted on the 156 train chunks only (local/live/translators)",
+  "data": "the 24 held-out chunks of local/live/corpus.json (sha256 in the run report); never used in fitting",
+  "protocol": {
+    "tail_tokens": 16,
+    "prefix": "all Qwen tokens before the tail; GLM rows are the aligned rows whose Qwen row is inside the prefix",
+    "metric": "mean log-probability Qwen assigns to its own true tail tokens (first tail token excluded: it has no in-tail predecessor)",
+    "conditions": {
+      "native": "Qwen prefills its own prefix (full state)",
+      "self_kv": "Qwen's own canonical KV prefix injected, recurrent state fresh, zero selector keys (connector-mode ceiling)",
+      "telepathy": "GLM latents -> GLM writer -> pool.v1 -> Qwen reader -> injected as KV prefix, recurrent state fresh, zero selector keys",
+      "wrong": "same as telepathy but with the NEXT held-out chunk's GLM entries (cyclic), truncated to the same length when longer",
+      "floor": "tail only, empty cache"
+    }
+  },
+  "pass_criteria": {
+    "C1_content_specific": "telepathy > wrong in at least 17 of 24 chunks (one-sided sign test, p = 0.032)",
+    "C2_useful": "mean(telepathy) > mean(floor) and telepathy > floor in at least 17 of 24 chunks",
+    "verdict": "PASSED only if C1 and C2 both hold; C1 alone = PARTIAL (content crosses but does not help); otherwise FAILED"
+  },
+  "reported_regardless": ["fraction of the floor->self_kv gap closed by telepathy", "per-chunk table", "top-1 tail accuracy per condition"],
+  "known_limits": ["KV-only self-transfer closed only 22-30% of the floor->native gap in the exploratory Studio run, so the achievable effect is small",
+                   "ridge translators are linear and were fitted on ~19k rows of project-document text; held-out relative RMSE 0.69-0.86"]
+}

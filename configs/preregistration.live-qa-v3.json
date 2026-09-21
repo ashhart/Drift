@@ -1,0 +1,30 @@
+{
+  "name": "drift-live-qa-v3-both-directions",
+  "label": "PREREGISTERED before the evaluation passages were read by anyone and before any v3 output on them existed",
+  "question": "Does tokenisation-aware translation close the remaining gap? Same single-fact lookup as live-qa-v2, fresh passages, both directions, the v2 pipeline re-run on the same items as a comparison arm.",
+  "passages": "scripts/live/gen_corpus.py --n 64 --seed 8383 --heldout-vocab (GLM-written; names and places disjoint from all training text); the first 60 usable passages (a fact survives verbatim, both tokenizers round-trip)",
+  "questions": "one per passage, fact kind rotating code, person, time, ingredient, animal, colour, count, weight, room, day; templates in scripts/live/questions_v3.py. Changed from v2 for ONE kind: 'count' now asks 'What number of items is stated …' because the v2 wording ('How many items are mentioned') made readers count objects in the passage under every condition including the text control.",
+  "forward_GLM_to_Qwen": {
+    "v3": "base translator + fan-out maps (count classifier and residual maps on GLM entries; drift/translate/fanout.py). Which base (stacked2 or stacked3) is chosen on VALIDATION (local/live/ab3) and frozen in configs/frozen.live-qa-v3.json before the run. gain power 1.5.",
+    "v2": "stacked2.npz, every GLM row translated one-to-one, gain power 1.5 (the D0 pipeline)",
+    "reader": "Studio drift worker; memory appended directly below the reader's own tokens; plain chat prompt (no system prompt); greedy; 160 new tokens",
+    "conditions": ["no_memory", "drift_v3", "drift_v2", "wrong_memory (v3 memory of the next item)", "own_kv (control)", "text_in_prompt (control)"]
+  },
+  "reverse_Qwen_to_GLM": {
+    "v3": "stacked3_rev.npz (the v2 recipe refitted with the number-dense corpus added), every Qwen row translated, gain power 1.0, 12 copies. The merge filter and residual fold-in were tried on validation and REJECTED (0.68-0.74 vs 0.78-0.82 baseline on numeric items); a link system prompt was tried and REJECTED for GLM (0.74 vs 0.86).",
+    "v2": "stacked2_rev.npz, gain power 1.0, 12 copies",
+    "reader": "GLM-5.3 in the running vLLM server through DriftGlm53Connector; no system prompt; temperature 0; 160 new tokens",
+    "conditions": ["no_memory", "placeholders_only", "drift_v3", "drift_v2", "wrong_memory (v3)", "own_latents (control)", "text_in_prompt (control)"]
+  },
+  "metric": "exact match: the fact's value appears in the answer (case-insensitive substring); a failed cache write counts as a miss",
+  "pass_criteria": {
+    "per_direction": {
+      "C1_content_specific": "EM(drift_v3) - EM(wrong_memory) >= 0.25 and one-sided exact sign test p < 0.05",
+      "C2_gap_closed": "EM(drift_v3) >= EM(own-cache control) - 0.05",
+      "C3_improved": "EM(drift_v3) >= EM(drift_v2) (reported with the discordant counts; no significance claimed at n = 60)"
+    },
+    "verdict": "per direction: PASSED if C1, C2 and C3; PARTIAL if C1 only; otherwise FAILED"
+  },
+  "reported_regardless": ["EM per condition, per fact kind and for numeric kinds separately", "every question, reference and answer", "validation A/B numbers that led to the frozen choice", "run-to-run noise observed on validation (about +/- 0.04 on the GLM side)"],
+  "known_limits": ["single-fact lookup on ~100-word passages", "reader-side ceiling: own-cache control is below the text control", "GLM-side serving is not bit-deterministic"]
+}

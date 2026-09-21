@@ -1,0 +1,10 @@
+[
+ {"passage": "Shipping note for the Harbour Street depot. The replacement compressor for cold room four arrives on Thursday at 06:40 on a blue Volvo lorry driven by Marta. The delivery code is 7291 and the pallet must be signed for by the night supervisor, Mr Okafor. If the lorry is late, call the dispatcher on extension 318.",
+  "question": "What is the delivery code for the compressor, and who has to sign for the pallet?", "answer": "The delivery code is 7291"},
+ {"passage": "Field report from the Lyngen survey. The team found the missing weather buoy wedged under the ice shelf about nine kilometres north of the hut. Its battery had failed because a seal had chewed through the orange power cable. Ingrid replaced the cable with the spare from sled two and the buoy resumed transmitting at 14:05.",
+  "question": "Why did the weather buoy's battery fail?", "answer": "A seal chewed through the orange power cable"},
+ {"passage": "Recipe card from Aunt Bao. Her dumpling filling uses minced pork, garlic chives and a spoonful of fermented bean paste, but the secret ingredient is finely grated green apple, which keeps the filling juicy. Steam the dumplings for exactly eleven minutes and serve them with black vinegar.",
+  "question": "What is the secret ingredient in Aunt Bao's dumpling filling?", "answer": "Finely grated green apple"},
+ {"passage": "Minutes of the allotment committee. The members voted to repaint the tool shed in dark green rather than red. Plot 23 was reassigned from Mr Hale to the Petrenko family. The annual pumpkin weigh-off will be held on the second Saturday of October, and last year's winner weighed 84 kilograms.",
+  "question": "What colour will the tool shed be repainted, and which plot went to the Petrenko family?", "answer": "Dark green, and plot 23"}
+]

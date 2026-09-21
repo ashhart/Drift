@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "entrypoint": "drift_glm53_connector",
+  "source_commit": "0ea4522c4535e00a8a3e12dc674982ba79b003cc",
+  "files": [
+    {
+      "module": "drift_glm53_connector",
+      "source": "drift/serving/vllm_glm53_inject.py",
+      "sha256": "c81a26f2083fbedbff6db45a000ce96a0664a9fba7aeabdd0a537736baff1bd3"
+    },
+    {
+      "module": "glm53_handoff",
+      "source": "drift/serving/glm53_handoff.py",
+      "sha256": "fc2172eed8659d7aa5fde05197ea61e509962d9cf3f1ce4991310c1ad6ec6434"
+    },
+    {
+      "module": "glm_allocation_lifecycle",
+      "source": "drift/serving/glm_allocation_lifecycle.py",
+      "sha256": "d090934a63f42f1e805d203fbfc98e3ad07ce5480e0733b32419c0e0f1b8485c"
+    },
+    {
+      "module": "glm_cache_commit",
+      "source": "drift/serving/glm_cache_commit.py",
+      "sha256": "0501a56bc1218dbd8459fad80aa92cc3b2c54b81d9441b7d390fbf5e3378c132"
+    },
+    {
+      "module": "glm_rank_failure",
+      "source": "drift/serving/glm_rank_failure.py",
+      "sha256": "5873f4a0f22c0e1622117c4e60af09d009ca2bbd69839abf0501eed30db4c86a"
+    },
+    {
+      "module": "glm_worker_save",
+      "source": "drift/serving/glm_worker_save.py",
+      "sha256": "5ee4f269bf6a5dfb55b572e36a5ca32dceee71037ece9ffc35dfb8a0c977dbdd"
+    },
+    {
+      "module": "live_publication",
+      "source": "drift/serving/live_publication.py",
+      "sha256": "5ea12bf0a6377cbfcbfcbe6b3693fc2fec0c606e35e5214d4f8521e7b5bade6c"
+    },
+    {
+      "module": "live_rank_receipt",
+      "source": "drift/serving/live_rank_receipt.py",
+      "sha256": "02b8194ab2d8870d7cc900c63aa2fc724e75d7008c801a5d72d08c68a376a8bd"
+    },
+    {
+      "module": "live_receiver_glm",
+      "source": "drift/serving/live_receiver_glm.py",
+      "sha256": "24f4959238eef8f5baeabeb7ad35c3e5222217f5205c1f803b7d1d8ccc5fb0d4"
+    },
+    {
+      "module": "live_tap_capture",
+      "source": "drift/serving/live_tap_capture.py",
+      "sha256": "52810c33f8c82191aef7f321bb76beb5c63fb938390c8e16172a9f2eade42a06"
+    },
+    {
+      "module": "live_tap_finish",
+      "source": "drift/serving/live_tap_finish.py",
+      "sha256": "6392d93f07d327a5b77e54c0ecc4e28054cdcc5603c27f525462ed90f716c23c"
+    }
+  ],
+  "targets": [
+    {
+      "ssh": "spark-a.invalid",
+      "container": "drift-head",
+      "python": "/usr/bin/python3",
+      "python_version": "3.12.3",
+      "image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "site_packages": "/opt/drift/runtime/lib/python3.12/site-packages",
+      "base_module": "glm53_handoff_connector",
+      "base_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "rollback": {
+        "drift_glm53_connector": null,
+        "glm53_handoff": null,
+        "glm_cache_commit": null,
+        "live_publication": null,
+        "live_rank_receipt": null,
+        "live_receiver_glm": null,
+        "live_tap_capture": null,
+        "live_tap_finish": null
+      }
+    },
+    {
+      "ssh": "spark-b.invalid",
+      "container": "drift-worker",
+      "python": "/usr/bin/python3",
+      "python_version": "3.12.3",
+      "image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "site_packages": "/opt/drift/runtime/lib/python3.12/site-packages",
+      "base_module": "glm53_handoff_connector",
+      "base_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "rollback": {
+        "drift_glm53_connector": null,
+        "glm53_handoff": null,
+        "glm_cache_commit": null,
+        "live_publication": null,
+        "live_rank_receipt": null,
+        "live_receiver_glm": null,
+        "live_tap_capture": null,
+        "live_tap_finish": null
+      }
+    }
+  ]
+}

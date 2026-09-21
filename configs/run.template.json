@@ -1,0 +1,57 @@
+{
+  "schema": "drift.run.v1",
+  "run_uuid": null,
+  "model_a": {
+    "role": "Studio",
+    "family_choice": "Qwen3-8B",
+    "local_path": null,
+    "revision": null,
+    "weights_manifest_sha256": null,
+    "tokenizer_manifest_sha256": null,
+    "config_sha256": null,
+    "adapter_commit": null,
+    "runtime_lock_sha256": null,
+    "quantization": "none_for_reference",
+    "dtype": "float32_for_reference"
+  },
+  "model_b": {
+    "role": "Spark",
+    "family_choice": "Llama-3.1-8B_variant_to_be_pinned",
+    "local_path": null,
+    "revision": null,
+    "weights_manifest_sha256": null,
+    "tokenizer_manifest_sha256": null,
+    "config_sha256": null,
+    "adapter_commit": null,
+    "runtime_lock_sha256": null,
+    "quantization": "none_for_reference",
+    "dtype": "float32_for_reference"
+  },
+  "layer_pairs": [],
+  "foreign_window": {"sinks": 4, "recent": 128},
+  "schedule": {"mode": "one_epoch_lag", "decode_tokens_per_epoch": 1},
+  "transport": {"backend": "inproc", "queue_capacity": 2, "max_frame_bytes": 67108864},
+  "budgets": {
+    "approved_training_device_hours": null,
+    "approved_training_token_presentations": null,
+    "approved_inference_wall_seconds_per_trial": null,
+    "approved_peak_memory_bytes_per_host": null
+  },
+  "channel_policy": {
+    "model_readable_live_text": "forbidden",
+    "task_derived_token_id_fields": "forbidden",
+    "timing_and_length_policy": "fixed_schedule_declared_metadata",
+    "e1_e2_peer_artifact_reads": "forbidden",
+    "e4_peer_artifact_reads": "separately_metered_declared_channel",
+    "audit_visibility": "experimenter_only"
+  },
+  "evidence_root": null,
+  "series_rules_hash": null,
+  "preregistration_hash": null,
+  "host_integration": {
+    "mcdma_repository_path": null,
+    "mcdma_commit": null,
+    "omp_repository_path": null,
+    "omp_commit": null
+  }
+}

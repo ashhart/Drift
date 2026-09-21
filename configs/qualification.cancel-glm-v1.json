@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "purpose": "Scoped GLM cancellation engineering qualification, not a scientific trial",
+  "model": "GLM-5.3-Flash-EXL3",
+  "engine": "0",
+  "base_url": "http://127.0.0.1:8888",
+  "host": "spark-a.invalid",
+  "max_requests": 1,
+  "max_new_tokens": 256,
+  "max_prompt_tokens": 256,
+  "reserve_rows": 8,
+  "max_seconds": 180,
+  "cleanup_reserve_seconds": 10,
+  "poll_seconds": 0.25,
+  "baseline_samples": 3,
+  "settled_samples": 3,
+  "no_link": true,
+  "warmup_requests": 0,
+  "retries": 0,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Write the integers from 1 to 1000, one integer per line, with no explanation."
+    }
+  ],
+  "pass_requirements": [
+    "Complete target-model/engine idle metrics on three baseline samples",
+    "One owned stream with actual output and observed running=1/waiting=0",
+    "Explicit abort sent only to the owned session",
+    "Typed cancellation acknowledgement and expected reaped supervisor exit",
+    "Three distinct subsequent idle samples with cache occupancy at or below baseline",
+    "All steps complete within the shared deadline without natural-completion substitution"
+  ],
+  "limitations": [
+    "Aggregate metrics require an otherwise idle target engine; concurrent traffic invalidates attribution",
+    "KV occupancy recovery does not prove CUDA allocator memory release",
+    "No activation write, rank-content agreement, causal schedule, provenance or OMP behavior is tested",
+    "Generated tokens are capped by the request, not counted from SSE chunks",
+    "The first-request cost is retained; no warm-up or failed attempt is hidden"
+  ],
+  "service_auth": "none",
+  "preflight_amendment": "Example only: select explicit none or bearer mode to match the privately verified service configuration without changing server controls. This file does not authorize a model request."
+}

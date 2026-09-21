@@ -1,0 +1,9 @@
+# Private Studio failure diagnostics
+
+An owner-pinned Studio worker configuration may set `diagnostics_path` to a fresh absolute file outside every Git repository or worktree, under an owner-held directory with no group or other permissions. The factory then instruments only the existing Studio backend; absent this option, execution is unchanged. The path is not accepted through the worker's own-input protocol or model tools.
+
+The file is exclusively reserved with mode 0600 and contains at most one bounded failure receipt. A successful close leaves the reserved file empty. The receipt contains a fixed phase, numeric input/total/generated-token and generation-attempt counts, and at most three chained exceptions with sixteen stack frames each. Frames include only allowlisted file basenames and function names plus line numbers; unknown code names become `external`/`other`, and unknown exception classes become `Exception`.
+
+No exception messages, source lines, frame locals, full paths, private text, token IDs or arrays enter the diagnostic record. Suppressed chained causes are inspected for safe metadata only. Original exceptions still propagate to the existing worker boundary, whose public response remains the original fixed error code. A failed diagnostic write does not replace the original backend error; a missing or incomplete receipt cannot establish a failure cause.
+
+Phase markers separate native prefill/generation, output collection, tokenizer decode, tool parsing and serialization. Numeric generated-token counts describe successful native steps observed before failure, not an answer score or a measured allocator release. The supervisor's separate termination receipt is still required to establish process cleanup. Owner configuration and source hashes must be frozen before a separately authorized diagnostic model run; adding this option does not authorize inference or retries.

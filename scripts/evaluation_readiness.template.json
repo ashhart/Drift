@@ -1,0 +1,88 @@
+{
+  "schema": "drift.appointment-readiness.v1",
+  "claim_scope": "exploratory_appointment",
+  "freeze": {
+    "source_commit": null,
+    "series_rules_sha256": null,
+    "approval_record_sha256": null,
+    "hidden_set_commitment_sha256": null,
+    "development_exclusion_sha256": null,
+    "preregistration_timestamp_receipt_sha256": null,
+    "before_hidden_evaluation": null,
+    "backbones_frozen": null,
+    "no_hidden_feedback_for_tuning": null
+  },
+  "pins": {
+    "models": null,
+    "quantization": null,
+    "inference": null,
+    "prompts": null,
+    "toolchain": null,
+    "runner": null,
+    "forward_translator": null,
+    "reverse_translator": null,
+    "layer_maps": null,
+    "injection": null,
+    "scorer": null
+  },
+  "budget": {
+    "owner_approval_sha256": null,
+    "wall_seconds": null,
+    "local_tokens_total": null,
+    "wire_bytes_total": null,
+    "memory_bytes": null,
+    "storage_bytes": null,
+    "retries": null,
+    "scope": "all_arms_all_repeats_setup_and_retries",
+    "enforcement_test_sha256": null
+  },
+  "design": {
+    "independent_scenarios": null,
+    "repeats_per_arm": null,
+    "sampling_unit": "scenario",
+    "precision_or_power_plan_sha256": null,
+    "primary_outcome": "round_trip_correct",
+    "primary_baseline": null,
+    "minimum_worthwhile_delta": null,
+    "arms": ["linked", "no_link", "reverse_only", "forward_only"],
+    "arm_order": null,
+    "order_seed": null,
+    "uncertainty": "paired_bootstrap_scenario_means_ci95",
+    "bootstrap_draws": null,
+    "bootstrap_seed": null,
+    "matched_conditions_sha256": null
+  },
+  "failure_policy": {
+    "timeout": "score_zero_keep_in_denominator",
+    "crash": "score_zero_keep_in_denominator",
+    "rejected": "score_zero_keep_in_denominator",
+    "partial_completion": "score_zero_keep_in_denominator",
+    "leakage": "abort_report_invalid_no_score",
+    "tampering": "abort_report_invalid_no_score",
+    "corrupt_activation": "abort_report_invalid_no_score",
+    "stale_session": "abort_report_invalid_no_score",
+    "schedule_violation": "abort_report_invalid_no_score",
+    "retain_all_attempts": true,
+    "report_failure_rates": true,
+    "separate_startup_and_steady_state": true,
+    "count_local_mail_tokens": true,
+    "retain_delivery_and_application_failures": true
+  },
+  "isolation": {
+    "evidence_outside_agent_and_worker_access": null,
+    "worker_a_peer_read_denied": null,
+    "worker_b_peer_read_denied": null,
+    "workers_scorer_read_denied": null,
+    "workers_scorer_write_denied": null,
+    "agents_hidden_evidence_read_denied": null,
+    "scorer_output_not_returned": null,
+    "separate_process_identities": null,
+    "tool_and_network_allowlist_enforced": null
+  },
+  "schedule": {
+    "mode": "exploratory_async",
+    "test_evidence_sha256": null,
+    "all_layers_pinned_before_either_publish": null
+  },
+  "upstream_gate_evidence": {}
+}

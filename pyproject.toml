@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drift-reference"
+version = "0.2.0"
+description = "Frozen-model KV collaboration: correctness reference and staged agent handoff"
+requires-python = ">=3.11,<3.14"
+dependencies = ["numpy==2.3.5", "torch==2.10.0", "safetensors==0.7.0"]
+
+[project.optional-dependencies]
+test = ["pytest==9.0.2"]
+hf = ["transformers==4.56.2"]
+
+[project.scripts]
+drift = "drift.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["drift*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

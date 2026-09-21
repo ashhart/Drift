@@ -1,0 +1,20 @@
+{
+  "schema": "telepathy.prereg.v1",
+  "written_before_any_real_weight_number": true,
+  "date": "2026-09-19",
+  "host": "studio (Apple M3 Ultra, 256 GB), mlx 0.32.2, mlx-lm 0.31.3, mlx-vlm 0.7.1, default Metal kernels",
+  "checkpoint": "Vontra/Qwen3.8-Flash-Next-MLX-4bit-MTP (local copy under oMLX), 4-bit affine group 32, bf16 activations",
+  "adapter": "qwen4_exp/mlx",
+  "criteria": {
+    "no_foreign_multi_token": "adapter output must be BIT-IDENTICAL to the same decoder run without the adapter installed, for full prefill and for a multi-token continuation on a cache (same code path, so any difference is an adapter defect)",
+    "hard_off": "override=0 with hostile foreign entries must be BIT-IDENTICAL to the no-foreign adapter run, output and every cache array",
+    "single_token_decode": "REPORTED, not gated: the public LanguageModel path routes 1-token decode through a batch-invariant forward that bypasses the attention class; the adapter drives the decoder directly. Report max abs difference versus the stock public path and versus the stock decoder path.",
+    "prefill_vs_incremental": "REPORTED against the stock model's own prefill-vs-incremental drift measured in the same run; the adapter's drift must not exceed the stock drift by more than 10 percent",
+    "foreign_live": "override=1 with foreign entries must change the output; foreign mass per KV layer must lie in [0,1]",
+    "capture": "canonical K/V for every KV-bearing layer (12 expected) with shape [T, 2, 256], finite"
+  },
+  "lengths": [16, 64],
+  "continuation_tokens": 5,
+  "seeds": [0],
+  "no_widening": "criteria are not changed after the run; a failure is recorded as FAILED with the measured values"
+}

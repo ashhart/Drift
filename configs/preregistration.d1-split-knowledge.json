@@ -1,0 +1,41 @@
+{
+  "name": "drift-d1-split-knowledge-v1",
+  "label": "PREREGISTERED before the evaluation passages were read by anyone and before any D1 output existed",
+  "question": "Can a reader REASON over borrowed memory together with its own context? Part of each answer exists only in GLM-5.3's cache of passage A (Sparks, vLLM); part exists only as text in Qwen3.8's own prompt (Studio, oMLX).",
+  "direction": "GLM -> Qwen only (the vLLM-side injection currently limits the reader's own prompt to <128 tokens; reverse follows roadmap stage D3)",
+  "frozen": "translator local/live/stacked2.npz (sha256 70b973e2\u2026660c), gain power 1.5, both frozen for the D0 evaluation and unchanged. Memory is appended to a running cache at positions directly below the reader's own tokens (scripts/live/studio_drift_worker.py). The reader's system prompt and the question templates are fixed in scripts/live/d1_eval.py at the commit that adds this file.",
+  "passages": "scripts/live/gen_corpus.py --n 110 --seed 6262 --heldout-vocab --require code,person,weight,colour (GLM-written prose; names and places disjoint from all translator training text). A passage is usable only if all four required facts survive verbatim and both tokenizers round-trip it.",
+  "items": {
+    "construction": "usable passages in generation order, item types cycling conj, sum, hop; at most 20 items per type; fewer if passages run out (minimum 12 per type, otherwise the run is INVALID)",
+    "conj": "A = one passage (partner memory), B = the next usable passage about a different thing with a different colour and code (reader's note). Question asks for the code in A and the colour in B. Correct iff the answer contains A's code and B's colour and contains neither B's code nor A's colour.",
+    "sum": "A, B as above. Question asks for the combined weight in kilograms. Correct iff the answer contains the integer sum as a whole number token.",
+    "hop": "A = one passage; B = a generated five-entry staff directory (held-out names, distinct 3-digit extensions) containing A's responsible person. Question asks for the extension of the person responsible for A's thing. Correct iff the answer contains that extension and no other extension from the directory."
+  },
+  "conditions": {
+    "drift": "A's GLM cache -> translator -> appended to Qwen's cache; B and the question in the prompt",
+    "wrong_memory": "same with another item's A (next item of the same type, cyclic)",
+    "no_memory": "B and the question only",
+    "own_kv": "control: Qwen's own KV of A appended the same way",
+    "text_both": "control: A and B both pasted as text, no link prompt"
+  },
+  "decoding": "greedy, non-thinking chat template, 320 new tokens",
+  "pass_criteria": {
+    "C1_flows": "pooled over all items: EM(drift) - EM(wrong_memory) >= 0.25 and one-sided exact sign test on discordant items p < 0.05",
+    "C2_reasons": "for sum AND hop separately: EM(drift) - EM(wrong_memory) >= 0.25",
+    "C3_useful": "pooled EM(drift) >= 0.5 * EM(own_kv)",
+    "verdict": "PASSED if C1, C2 and C3; PARTIAL if C1 only (memory flows but is not reasoned over, or not usefully); otherwise FAILED"
+  },
+  "reported_regardless": [
+    "EM per type and condition",
+    "every prompt, reference and answer",
+    "validation run results (16 separate passages, seed 5151, used only to debug the pipeline; prompt wording is not tuned on them after this commit)"
+  ],
+  "known_limits": [
+    "short passages",
+    "one reader",
+    "memory arrives before the reader's prompt (handshake then reason), not mid-generation"
+  ],
+  "amendments": [
+    "2026-09-20, before any evaluation passage was read or any evaluation output existed: decoding limit raised from 160 to 320 new tokens for every condition. Reason: in the 9-item pipeline check (validation passages, seed 5151) the sum items ran out of tokens mid-reasoning in all conditions including text_both. Nothing else changed: prompts, templates, scoring, translator and gain are as first committed (bdc83cf)."
+  ]
+}

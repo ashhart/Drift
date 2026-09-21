@@ -1,0 +1,60 @@
+{
+  "name": "drift-v4-answer-level-training-forward",
+  "label": "PREREGISTERED on 2026-09-21 while the Studio was unreachable: before the trainer had ever run on the real reader, before any v4 weights existed and before the evaluation passages were generated",
+  "question": "Does answer-level training of the translator (both backbones frozen) close the forward GLM -> Qwen gap measured in live-qa-v3 (0.883 transferred vs 0.967 own-cache, 1.0 text)?",
+  "prior_evidence_against_overclaiming": "on the MacBook's local Qwen pair the same training raised validation EM 0.908 -> 0.967 but showed NO held-out gain (0.927 vs 0.933); that pair had no headroom. This run decides whether the method helps where headroom exists.",
+  "training": {
+    "script": "scripts/live/studio_train_answer_level.py",
+    "student": "Qwen3.8-Flash given GLM's cache entries through base stacked3 + frozen fan-out residuals + TRAINABLE rank-64 correction and per-layer K/V loudness, injected as a KV prefix",
+    "teacher": "the same Qwen3.8-Flash given the passage as text; loss KL(teacher || student) over the teacher's own greedy answer tokens; only items the teacher answers correctly",
+    "prompt_format": "exactly the live-qa-v3 format (plain question, no system prompt, no answer-length suffix) in training and evaluation",
+    "data": "training triples from the GLM-written passages of seeds 11/12 and 6262 and from programmatic passages (local/live/train_taps); validation = seeds 11/12 held-back passages and seed 5151. Hyperparameters (rank, learning rate, number of updates, checkpoint) are chosen on validation only; the chosen weights are hashed in configs/frozen.v4-answer-level.json BEFORE the evaluation passages are generated."
+  },
+  "evaluation": {
+    "passages": "scripts/live/gen_corpus.py --n 135 --seed 9494 --heldout-vocab, generated AFTER the freeze commit; first 120 usable passages, TWO questions per passage on different fact kinds (kinds rotating as in questions_v3.py), about 240 items in 120 clusters",
+    "conditions": [
+      "no_memory",
+      "drift_v3 (untrained: stacked3 + fanout3, the live-qa-v3 pipeline)",
+      "drift_v4 (trained)",
+      "wrong_memory (v4 memory of the next passage)",
+      "own_kv control",
+      "text_in_prompt control"
+    ],
+    "reader_setup": "Studio drift worker, memory directly below the prompt, greedy, 160 new tokens (as live-qa-v3)",
+    "metric": "exact match of the fact value (case-insensitive substring)"
+  },
+  "pass_criteria": {
+    "C0_target": "EM(drift_v4) >= 0.95 on all items. This is the project's stated target for this defined task; being close to the own-cache control does not imply it.",
+    "C1_gap_closed": "EM(drift_v4) >= EM(own_kv) - 0.05",
+    "C2_improved": "EM(drift_v4) - EM(drift_v3) >= 0.04 AND a one-sided exact sign-flip (permutation) test on PASSAGE-LEVEL differences (per passage: number of its questions v4 answers correctly minus the number v3 does; passages with difference 0 drop out) gives p < 0.05. The two questions of a passage share one memory, so they are one cluster, not two observations.",
+    "C3_still_specific": "EM(wrong_memory) <= 0.10",
+    "verdict": "PASSED if C0, C1, C2 and C3. PARTIAL if C2 and C3 hold but C0 or C1 does not (it helps; the target or the gap remains). INCONCLUSIVE if the point estimate of C2 is >= 0.04 but the clustered test is not significant. FAILED otherwise. A FAILED verdict is a result about this parametrisation of answer-level training."
+  },
+  "blocked_if": "scripts/live/studio_grad_probe.py shows that no gradient reaches the injected entries in oMLX's runtime and routing the linear-attention call to its plain-ops path is not possible: verdict BLOCKED, not FAILED",
+  "reported_regardless": [
+    "validation curves for every configuration tried",
+    "numeric vs other kinds",
+    "every question and answer",
+    "training cost (time, peak memory)"
+  ],
+  "power_statement": {
+    "status": "SIMULATED under explicit assumptions (scripts/live/power_v4.py, 3,000 runs per row, no data involved); it replaces the earlier provisional '60-70%'. The two accuracy rates alone do not determine power: breakage (v4 losing items v3 had) and within-passage clustering do.",
+    "model": "120 passages x 2 questions; v3 correctness per passage ~ Beta(mean 0.88, intra-passage correlation icc); a v3 miss is fixed with probability f, a v3 hit is broken with probability b; with probability `shared` both questions of a passage share the fix/break draw. C2 = [EM(v4) - EM(v3) >= 0.04] AND [exact clustered sign-flip p < 0.05].",
+    "P(C2) [independent questions: icc 0, shared 0] / [clustered: icc 0.3, shared 0.5]": {
+      "no true change, 2% breakage": "0.001 / 0.001",
+      "no true change, 6% breakage": "0.026 / 0.032",
+      "0.88 -> 0.93, 0% breakage": "0.77 / 0.74",
+      "0.88 -> 0.93, 2% breakage": "0.69 / 0.67",
+      "0.88 -> 0.93, 5% breakage": "0.63 / 0.52",
+      "0.88 -> 0.95 (target), 1% breakage": "0.95 / 0.93",
+      "0.88 -> 0.95 (target), 3% breakage": "0.91 / 0.85",
+      "0.88 -> 0.97, 1% breakage": "0.995 / 0.99"
+    },
+    "reading": "The test is well powered for the effect that matters (reaching the 0.95 target: 0.85-0.95) and only moderately powered for a 5-point gain (0.52-0.77, partly because the 0.04 effect-size threshold is itself missed about a quarter of the time). The false-positive rate of C2 is at most about 3%. A positive but non-significant estimate is labelled INCONCLUSIVE; a 95% passage-bootstrap interval for EM(v4) - EM(v3), both pipelines' outcomes kept paired within resampled passages, is reported regardless (drift/eval/paired_stats.py, verified against brute-force enumeration in tests/test_paired_stats.py).",
+    "unknowns": "the real breakage rate and clustering are not known in advance; the v3-vs-v2 comparison showed 3 of 60 items lost (5%) alongside 11 gained"
+  },
+  "amendments": [
+    "2026-09-21, before the trainer had run on the real reader, before any v4 weights and before the evaluation passages existed (audit feedback): added C0 (>= 0.95) as an explicit requirement; significance is now computed on passage-level differences because the two questions of a passage are not independent; evaluation enlarged from 60 to 120 passages; added the INCONCLUSIVE label and a power statement.",
+    "2026-09-21, still before any v4 weights or evaluation passages existed (audit feedback): the provisional power figure was replaced by a simulation with stated assumptions; the statistics code was written and verified against exhaustive enumeration first."
+  ]
+}

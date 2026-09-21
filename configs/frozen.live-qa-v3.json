@@ -1,0 +1,26 @@
+{
+  "preregistration": "configs/preregistration.live-qa-v3.json",
+  "artifacts": {
+    "forward_base": "local/live/stacked3.npz",
+    "forward_fanout": "local/live/fanout3.npz",
+    "forward_v2": "local/live/stacked2.npz",
+    "reverse_v3": "local/live/stacked3_rev.npz",
+    "reverse_v2": "local/live/stacked2_rev.npz"
+  },
+  "sha256": {
+    "forward_base": "0ff3a5053bc630336a77119b67ac7f34168ce3286b0937f0aba3e78d44cbac5b",
+    "forward_fanout": "570111c92300ac5355ae97c6382aab6dc2e128a9f57e3b0371d8fe6a584285cf",
+    "forward_v2": "70b973e2582956c68a2a4dc9645384a6a21c002e2453b35723052c608cc5660c",
+    "reverse_v3": "36c352797d936aca6468d4066c1be93fea99ab0185f7505e731874dc5e7be8b9",
+    "reverse_v2": "1d0c4cd70c2d5dff2b53fbba698e5fb496972e59138eebb973d47067f5e1cb49"
+  },
+  "forward_gain_power": 1.5,
+  "reverse_gain_power": 1.0,
+  "reverse_copies": 12,
+  "evaluation_passages_sha256": "f31eed4e8fb652242c930843d995c885d6b7c5cf96087ebc5c0b4244a0531575",
+  "chosen_on": {
+    "forward": "217 validation questions (all kinds): fan-out on stacked2 0.926, fan-out on stacked3 0.935 (numeric 0.935 / 0.944); numeric-only n=108: v2 one-to-one 0.713, fan-out 0.935",
+    "reverse": "numeric validation questions n=50: stacked2_rev 0.78-0.82 across runs, stacked3_rev 0.86; merge filter 0.68-0.72 and residual fold-in 0.74 rejected; link system prompt rejected (0.74)"
+  },
+  "note": "No output of any kind existed on the evaluation passages when this file was committed; they had not been read."
+}

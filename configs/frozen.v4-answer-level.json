@@ -1,0 +1,40 @@
+{
+  "preregistration": "configs/preregistration.v4-answer-level.json",
+  "artifacts": {
+    "forward_base": "local/live/stacked3.npz",
+    "forward_fanout": "local/live/fanout3.npz",
+    "correction": "local/live/v4_correction.safetensors"
+  },
+  "sha256": {
+    "forward_base": "0ff3a5053bc630336a77119b67ac7f34168ce3286b0937f0aba3e78d44cbac5b",
+    "forward_fanout": "570111c92300ac5355ae97c6382aab6dc2e128a9f57e3b0371d8fe6a584285cf",
+    "correction": "93eba9fcd1a6fdb81d287bc280e347682a00fa64176d26c437008470e7fc5e6c"
+  },
+  "forward_gain_power": 1.5,
+  "training": {
+    "script": "scripts/live/studio_train_answer_level.py",
+    "rank": 64,
+    "lr": 0.0002,
+    "updates": 300,
+    "examples_per_update": 2,
+    "train_triples": 4459,
+    "seconds_per_update": 3.9,
+    "peak_gb": 134,
+    "validation_curve_em_memory": {
+      "0": 0.92,
+      "100": 0.96,
+      "200": 0.99,
+      "300": 0.99
+    },
+    "validation_em_text": 0.94,
+    "validation_items": 100,
+    "kl": {
+      "10": 0.177,
+      "100": 0.043,
+      "200": 0.046,
+      "300": "see local/live/v4_train.log"
+    }
+  },
+  "chosen_on": "validation only; this is the single configuration that was run (no search), final checkpoint",
+  "note": "Committed BEFORE the evaluation passages (seed 9494) were generated. The local-pair precedent (validation gain that did not transfer) is why only the fresh-passage result counts."
+}
