@@ -56,9 +56,11 @@ backbone model, trains a translator or starts a remote service."""
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(
         prog="drift",
-        description="Inventory local checkpoints, check the evidence needed to link them, and scaffold adapters.",
+        description="Create tap projects, scaffold adapters, and build transcript-backed memory with explicit native commands.",
         epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
-    commands = root.add_subparsers(dest="command", required=True, metavar="{tap,adapter}")
+    commands = root.add_subparsers(dest="command", required=True, metavar="{tap,adapter,transcript}")
+    from drift.transcript.cli import add_commands
+    add_commands(commands)
     tap = commands.add_parser("tap", help="create and inspect two-model tap projects")
     tap_commands = tap.add_subparsers(dest="tap_command", required=True, metavar="{create,status}")
     create = tap_commands.add_parser("create", help="hash two checkpoints and record which gates they pass")
@@ -79,6 +81,9 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict | list[dict]:
+    if args.command == "transcript":
+        from drift.transcript.cli import dispatch as transcript_dispatch
+        return transcript_dispatch(args)
     if args.command == "tap" and args.tap_command == "create":
         return create_tap(args.name, member_spec(args, "source"), member_spec(args, "target"), args.output)
     if args.command == "tap" and args.tap_command == "status":

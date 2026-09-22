@@ -149,3 +149,38 @@ Python-log SHA-256: `06d8b69e57a33d81b0b13c5400016bba0c3ab82c0274588674fc63d43e4
 Plugin-log SHA-256: `27827869da65ec7131f62204d9ed748a3d7cde1c4e0115a3dca1a2a01253a0f5`.
 No model inference, host mutation or native-runtime change; costs in money and
 energy were not measured. Next gate remains completion on actual CI runners.
+
+## 2026-09-22: transcript-backed memory
+
+Stage: M-1 integration mechanics, with no scientific stage advancement.
+Source implementation: `83f89d1552a5164bedaacdf43284c37957c64230`;
+native permission/error repairs: `e064da770db22592baa54bb860da7aca915c83cd`;
+native evidence and launch guidance: `83dc35414766267fa18bc83a167c4c0bbbdf3399`.
+Development history and private runtime artifacts are excluded from publication.
+
+Added transcript import, validate, capture, receive and answer commands plus
+focused modules and regressions; README includes CLI and Python entry points.
+Owner-only request/output directories remain required under a non-writable
+shared export parent. Unavailable MCDMA control connections fail explicitly,
+with no text fallback or server restart.
+
+Native smoke PASSED: two GLM snapshots crossed MCDMA with matching digests;
+Qwen recalled 3/3 target facts with target memory and full text, 0/3 without
+memory, and the other snapshot's 3/3 alternative facts with different memory.
+One question was already used in the pilot, so this is not held-out evaluation.
+Capture times were 0.746/0.718 seconds, verified receive 6.33/5.52 milliseconds,
+CLI loading-plus-answer 9.42 seconds and the twelve-answer process 14.59 seconds.
+Setup and failed attempts are excluded from those component timings; native
+model work stayed below the ten-minute allowance. Money/energy unmeasured.
+The guide records the verified session-bound launch correction and the separate
+unattended-service limitation; no shared model/daemon restart or driver change.
+
+Publication-tree QA: `python -m pytest -q`, 1489 passed in 70.56 seconds,
+three required environment gates BLOCKED and one existing warning;
+`bun test`, 183 passed / 776 assertions in 2.66 seconds; TypeScript passed.
+Python-log SHA-256:
+`68110f3cce5405ea23f2a94f89753e2515d2de232215d851de818c1a1add0e05`.
+Private native-control result SHA-256:
+`d3fc853aefdc81b133f9343460ace1788bb7b0fb41330fe5f4598a54bc18e9d1`.
+General recall, source attribution and unattended lifecycle remain unqualified;
+per-invocation execution receipts cannot assert a scored recall result.

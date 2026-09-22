@@ -6,6 +6,7 @@ limits, or the [roadmap](ROADMAP.md) for the next engineering and research gates
 ## Use Drift
 
 - [Tap CLI](guides/TAP_CLI.md): inventory checkpoints, supply translators and qualify a local tap.
+- [Transcript-backed memory](guides/TRANSCRIPT_MEMORY.md): let local GLM read API messages and transfer its latent memory to Qwen.
 - [Model adapters](guides/ADAPTERS.md): implement and qualify a model/runtime integration.
 - [Test your own pair](guides/TESTING.md): collect an inventory and run the local reference safely.
 - [Native GLM/Qwen exchange](guides/NATIVE_OWNER_EXCHANGE.md): owner setup, staged application and tested lifecycle scope.

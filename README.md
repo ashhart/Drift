@@ -51,7 +51,7 @@ That checks cache mechanics, not language understanding or cross-family recall.
 
 ## Create your own tap
 
-The CLI inventories two local checkpoints, hashes their inputs and checks the evidence needed to connect them. It does not load the backbone models, train a translator or start remote services.
+The tap commands inventory two local checkpoints, hash their inputs and check the evidence needed to connect them. These commands do not load the backbone models, train a translator or start remote services.
 
 Replace these paths with your checkpoints and recorded runtime locks. This example uses the built-in Qwen and GLM Torch adapter IDs; their runtime requirements and qualification still apply.
 
@@ -92,6 +92,51 @@ drift adapter scaffold my_model/torch \
 The scaffold deliberately starts with a blocked loader. Implement the [adapter contract](docs/guides/ADAPTERS.md), then qualify it on tiny configurations and real weights. A model name is not a compatibility guarantee, including MiniMax or Nemotron variants.
 
 The [full CLI guide](docs/guides/TAP_CLI.md) covers qualification artifacts, translator inputs and plugin registration.
+
+## Build memory from an API conversation
+
+`drift transcript` imports an explicitly supplied text conversation, lets local GLM
+read it, transfers stripped latent rows over MCDMA, and lets local Qwen answer
+from translated memory. This is **GLM's memory of the transcript**, not the API
+model's recovered cache or hidden reasoning.
+
+Start with the completed text-only messages array from your API client, including
+assistant replies and tool results, in an owner-only directory outside the repo:
+
+```bash
+drift transcript import --input /private/memory/messages.json \
+  --provider example --model api-model --conversation-id session-1 \
+  --output /private/memory/transcript.json
+drift transcript validate --input /private/memory/transcript.json
+drift transcript --help
+```
+
+For Python callers, the importer returns the same validated snapshot without
+intercepting requests or handling provider credentials:
+
+```python
+from drift.transcript.importer import from_chat_messages
+
+transcript = from_chat_messages(
+    [{"role": "user", "content": "Delivery arrives at 10:45."},
+     {"role": "assistant", "content": "Recorded."}],
+    provider="example", model="api-model", conversation_id="session-1",
+)
+receipt = transcript.receipt()
+```
+
+The remaining commands are `capture` on the GLM host, `receive` over MCDMA on
+the Qwen host, and `answer` using the pinned translator and received memory.
+Follow the [transcript-memory guide](docs/guides/TRANSCRIPT_MEMORY.md) for their
+required flags, private files and explicit time budgets; these commands do not
+install runtimes, start daemons or recover an API provider's original cache.
+
+The transcript path has passed a native GLM → MCDMA → Qwen smoke check:
+Qwen recovered all three queried facts from one synthetic conversation, as it
+did with the full transcript. Without memory it recovered none; with a second
+conversation's memory it returned that conversation's three different facts.
+This checks execution and memory dependence on a tiny fixture, not general
+recall, source attribution or a quality advantage over text.
 
 ## Duo and `/drift`
 
