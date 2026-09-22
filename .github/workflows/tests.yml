@@ -33,10 +33,17 @@ jobs:
           drift adapter list
 
   plugin:
-    # The omp-drift plugin is TypeScript under Bun; it has no Python or hardware dependency.
-    runs-on: ubuntu-latest
+    # Sandbox integration tests require macOS Seatbelt and the Python 3.11 framework.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+      - name: Require the macOS sandbox and pinned framework runtime
+        run: |
+          test -x /usr/bin/sandbox-exec
+          test -x /Library/Frameworks/Python.framework/Versions/3.11/bin/python3
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest

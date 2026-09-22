@@ -28,7 +28,7 @@ def test_api_stage_pins_extended_deadline_without_changing_default(tmp_path):
     from development_stage import prepare
     _, profile = make_profile(tmp_path)
     profile['purpose'] = 'restricted-api-development'
-    prepared = prepare(profile, tmp_path/'stage', Path('/Library/Frameworks/Python.framework/Versions/3.11/bin/python3'), 49276)
+    prepared = prepare(profile, tmp_path/'stage', Path(sys.executable), 49276)
     command = prepared['command']
     assert command[command.index('--max-time')+1] == '170'
 

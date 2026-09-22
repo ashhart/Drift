@@ -21,7 +21,7 @@ def test_public_task_separates_owner_sources_and_pins_the_final_verifier(tmp_pat
     from development_stage import prepare
     _path, profile = make_profile(tmp_path)
     evidence = tmp_path/'evidence'
-    prepared = prepare(profile, evidence, Path('/Library/Frameworks/Python.framework/Versions/3.11/bin/python3'), 49274)
+    prepared = prepare(profile, evidence, Path(sys.executable), 49274)
     task = Path(prepared['cwd']); scope_path = Path(prepared['env']['DRIFT_TASK_CONFIG'])
     scope = json.loads(scope_path.read_text())
     assert not scope_path.is_relative_to(task)
@@ -46,7 +46,7 @@ def test_development_verdict_uses_frozen_reconstructed_token_allowance(tmp_path,
     owner_path.write_text(json.dumps(owner)); profile['owner']['sha256'] = digest(owner_path)
     path.write_text(json.dumps(profile))
     args = SimpleNamespace(arm='text_only', profile=path, profile_sha256=digest(path), evidence=tmp_path/'trial', run=False,
-                           python=Path('/Library/Frameworks/Python.framework/Versions/3.11/bin/python3'), port=49275)
+                           python=Path(sys.executable), port=49275)
     prepared = development_api.run(args)
     args.run = True; args.prepared_sha256 = prepared['prepared_sha256']
     def execute(command, cwd, env):

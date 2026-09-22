@@ -78,3 +78,39 @@ No inference, training, deployment or host mutation occurred; money and energy
 were not measured. Current scientific and native workflow limits remain in
 STATUS. The exact publication commit, object audit and transfer result are
 recorded privately; passing tests alone do not authorize publication.
+
+## 2026-09-22: CI environment repair
+
+Stage: CI portability; no scientific-stage advancement.
+Implementation: `3122a34a7844681183679dae4c04a5636c916f48`.
+Failed public run: `35731775153`, source `1d220c49aee5b0d7175eee6af2370e35b21a5cbd`.
+
+The Linux Python jobs failed on eleven eager optional-tokenizer imports and
+three fixtures hardcoding a macOS interpreter. Five plugin tests require actual
+macOS Seatbelt, so Ubuntu correctly refused their sandbox calls. Local installs
+had hidden these environment assumptions.
+
+Recipe loading now imports tokenizers only when the live tokenization operation
+is requested; its eleven regressions explicitly remove that optional package.
+Pure staging fixtures use the running interpreter. Plugin CI runs on macOS 15
+with its required Python 3.11.9 framework and explicit executable preflight.
+No sandbox guard, security policy, assertion or required test was disabled.
+The Linux Python 3.11, 3.12 and 3.13 matrix remains.
+
+Red-capable checks reproduced eleven missing-tokenizer failures, three missing
+framework-path failures and DRIFT_TASK_SCOPE for a Linux platform. The added
+CI/runtime contract checks plus recipe regressions first failed thirteen tests.
+After repair, twenty focused tests and seven simulated missing-framework tests
+passed. Baseline candidate suite: 1430 passed; final: 1432 passed in 64.33
+seconds, three required environments still BLOCKED and one existing warning.
+Plugin: 183 passed, 775 assertions in 2.73 seconds; TypeScript passed.
+
+Evidence SHA-256:
+
+- Failed CI log: `6e95e7972a69b8f74a40622e36591f4855864dac16a9962ddeb4a3e624af1984`.
+- Python final: `1402623647dd9d3154bd9ba98044963db18d4d3ccd49e19479f81f3c7e5a241b`.
+- Plugin final: `315c3a95790a08b24ee640d55365864639259ef75c6bc5b824766753fe35c495`.
+
+No native inference, training or host mutation; energy and money not measured.
+Next gate: verify the replacement GitHub Actions run on its actual runners;
+local checks do not claim remote CI success or native model qualification.

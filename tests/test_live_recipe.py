@@ -3,6 +3,7 @@ import importlib.util
 import hashlib
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
 import pytest
@@ -31,6 +32,7 @@ def fixture_manifest(tmp_path):
 
 
 def live_lib(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'tokenizers', None)
     spec = importlib.util.spec_from_file_location('synthetic_livelib', ROOT / 'scripts/live/livelib.py')
     lib = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(lib)

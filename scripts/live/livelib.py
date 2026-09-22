@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib, json, os, subprocess
 from pathlib import Path
 import numpy as np
-from tokenizers import Tokenizer
 from drift.translate.pack import ModelPack
 from drift.translate.stacked import StackedReader
 
@@ -33,6 +32,7 @@ def load_reader(path: Path, *, recipe="legacy", manifest=None, kv_heads=2, head_
 
 def glm_read(passages: dict[str, str], out: Path, run: str) -> Path:
     """The writer reads each passage on the Sparks; the running vLLM server exports its cache latents."""
+    from tokenizers import Tokenizer
     tok = Tokenizer.from_file("local/tok/glm/tokenizer.json")
     ids = {"records": [{"id": pid, "ids_glm": tok.encode(text, add_special_tokens=False).ids} for pid, text in passages.items()]}
     (out / "glm.ids.json").write_text(json.dumps(ids))
