@@ -49,7 +49,7 @@ Client policy (`drift/serving/glm_prefix_reuse.py`, pure functions, not yet wire
 
 ## Proposed qualification, after review and re-pin (bounded, no training, no restart beyond the bundle cutover)
 
-1. Re-pin, stage, staged-import receipts, coordinated cutover (see `GLM_CONNECTOR_DEPLOYMENT.md`).
+1. Re-pin, stage, staged-import receipts, coordinated cutover (see `docs/reference/glm/GLM_CONNECTOR_DEPLOYMENT.md`).
 2. No-link: warm request, then the same prompt twice with a stable salt; record `cached_tokens` and time-to-first-token.
 3. Linked, span after the system text, `drift_prefix_reuse: true`: confirm `cached_tokens <= reserve_start`, all rank
    receipts, and identical answers to a run with reuse off (greedy; this stack is not bit-deterministic, so compare the

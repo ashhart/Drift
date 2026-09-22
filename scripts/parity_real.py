@@ -1,4 +1,4 @@
-"""Level-2 adapter parity on a local checkpoint at its deployed precision (docs/ADAPTERS.md).
+"""Level-2 adapter parity on a local checkpoint at its deployed precision (docs/guides/ADAPTERS.md).
 
 The tolerance must be preregistered in a JSON file BEFORE this runs; the script refuses
 to run without it and never widens it. It reports the full error distribution, not only

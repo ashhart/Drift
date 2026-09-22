@@ -1,4 +1,4 @@
-"""Hive-stage experiments (docs/HIVE_MIND.md §7): pool handoff, swap-in, writer departure.
+"""Hive-stage experiments (docs/research/HIVE_MIND.md §7): pool handoff, swap-in, writer departure.
 
 These produce predictions for an EXTERNAL scorer. Nothing here sees answers.
 

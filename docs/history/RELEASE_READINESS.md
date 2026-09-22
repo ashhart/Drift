@@ -1,5 +1,8 @@
 # Two-agent repository workflow release
 
+> Historical record, preserved from the pre-cleanup documentation.
+> Not current operating instructions; see [current status](../STATUS.md).
+
 Historical host observations below are not a current deployment inventory. Public
 examples use anonymized endpoint names; verify private manifests and deployed hashes
 before any native run. The composed exchange defects were repaired locally in
@@ -80,11 +83,11 @@ staged imports and post-restart active-inventory checks PASSED at receipt commit
 `a1d4eea`. The current read-only recheck also passed, with health 200 and zero
 running/waiting requests and KV-cache occupancy. Deployment and one standalone
 GLM cancellation probes and one linked rank write are now PASSED; remaining
-workflow gates are described in `docs/TRANSLATION_BRIDGE.md`.
+workflow gates are described in `docs/reference/exchange/TRANSLATION_BRIDGE.md`.
 
 The original bidirectional-round and failed native Duo room receipts are archived
-outside the repository; see `docs/LINKED_NATIVE_ROUND.md` and
-`docs/NATIVE_ROOM_QUALIFICATION.md` for the current protocol requirements.
+outside the repository; see `docs/reference/omp/LINKED_NATIVE_ROUND.md` and
+`docs/reference/omp/NATIVE_ROOM_QUALIFICATION.md` for the current protocol requirements.
 The separate fifth and sixth native development runs produced an API passing its
 public checks, but failed whole-session completion, as recorded in
 the privately retained development receipts; this does not establish the paired comparison.

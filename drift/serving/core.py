@@ -1,4 +1,4 @@
-"""Serving-stack connector core (docs/SERVING_INTEGRATION.md). No vLLM imports here.
+"""Serving-stack connector core (docs/reference/service/SERVING_INTEGRATION.md). No vLLM imports here.
 
 Pure tensor logic a KV-connector shim calls:
 

@@ -103,7 +103,7 @@ concern the continuous/subagent paths. They do not explain all six staged-reader
 misses. A later local repair captures and finalizes the accepted partial tap
 tail and adds receipt-bound fresh-child wake, but neither is deployed or
 checkpoint-qualified. Generic resumed-subagent wake remains open; details are
-in `ACTIVATION_CHILD_WAKE.md` and `GLM_CONNECTOR_DEPLOYMENT.md`.
+in `docs/reference/omp/ACTIVATION_CHILD_WAKE.md` and `docs/reference/glm/GLM_CONNECTOR_DEPLOYMENT.md`.
 
 ## Current boundary
 

@@ -6,7 +6,7 @@ Works on the per-layer cache list from `language_model.make_cache()`:
     post-RoPE), `offset`, `update_and_fetch(keys, values)` and, for QSA models,
     `update_indexer(index_keys [1,T,Di], position_ids [1,T])` with `index_keys`.
   - other layers hold recurrent/conv state objects that are left alone.
-Connector-mode semantics (docs/SERVING_INTEGRATION.md): foreign entries become a cache PREFIX at
+Connector-mode semantics (docs/reference/service/SERVING_INTEGRATION.md): foreign entries become a cache PREFIX at
 positions 0..N-1; the model's own prompt then runs at positions N.. .
 """
 from __future__ import annotations

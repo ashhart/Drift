@@ -1,5 +1,8 @@
 # Running the live exchange (GLM-5.3 on the Sparks <-> Qwen3.8 on the Studio)
 
+> Historical record, preserved from the pre-cleanup documentation.
+> Not current operating instructions; see [current status](../STATUS.md).
+
 Everything is driven from the orchestrating machine over ssh. Host aliases come from `DRIFT_SPARK` (head),
 `DRIFT_SPARK_PEERS` (other tensor-parallel hosts) and `DRIFT_STUDIO`; no secret passes through these
 scripts (the Spark-side scripts read the server's API key inside the host, `scripts/live/spark_run.sh`).

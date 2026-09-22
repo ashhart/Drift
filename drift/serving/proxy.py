@@ -1,4 +1,4 @@
-"""OpenAI-compatible proxy in front of a connector-enabled server (docs/SERVING_INTEGRATION.md).
+"""OpenAI-compatible proxy in front of a connector-enabled server (docs/reference/service/SERVING_INTEGRATION.md).
 
 Any client (OMP, curl, an SDK) sends an ordinary chat request. If the body carries
 

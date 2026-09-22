@@ -1,4 +1,4 @@
-"""Client-side policy for prefix-cache reuse under a linked GLM session; rationale in docs/GLM_PREFIX_REUSE.md."""
+"""Client-side policy for prefix-cache reuse under a linked GLM session; rationale in docs/reference/glm/GLM_PREFIX_REUSE.md."""
 import copy
 import hashlib
 import re

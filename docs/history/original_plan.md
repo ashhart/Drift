@@ -1,5 +1,8 @@
 # Drift: engineering plan
 
+> Historical record, preserved from the pre-cleanup documentation.
+> Not current operating instructions; see [current status](../STATUS.md).
+
 Two models, one project, one shared mind. Model A runs on the Studio, model B runs on a Spark, both work the same repo the way the OMP Duo room already does, except they never speak in tokens. Each reads the other's KV cache directly across the MCDMA link, each can leave a question inside its own cache for the other to find. Pure drift, on hardware you already built the pipe for.
 
 The bridge layer inside keeps the anatomical name, the callosum, after the nerve that links the brain's hemispheres. The project is called what it is.

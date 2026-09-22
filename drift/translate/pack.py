@@ -1,4 +1,4 @@
-"""Model pack: one member's writer into pool.v2 and reader out of it (docs/HIVE_MIND.md, H1/H9).
+"""Model pack: one member's writer into pool.v2 and reader out of it (docs/research/HIVE_MIND.md, H1/H9).
 
 pool.v2 holds ONE vector per token. A writer maps the member's stacked canonical entries (all of its KV-bearing
 levels at that token) into the pool; a reader maps pool rows written by any other member to each of its own

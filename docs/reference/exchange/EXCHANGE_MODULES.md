@@ -125,7 +125,7 @@ Clean socket reconnections retain the pending publication and lifetime limits.
 The original `exchange` operation keeps its synchronous application requirement.
 
 The runtime-owned snapshot path now has a separate `stage` operation and an
-opt-in version-2 provider hook, described in [Native owner exchange](NATIVE_OWNER_EXCHANGE.md).
+opt-in version-2 provider hook, described in [Native owner exchange](../../guides/NATIVE_OWNER_EXCHANGE.md).
 It binds a publication to GLM's versioned bank and confirms the completed turn
 after resumption. `STAGED_NOT_APPLIED` makes no wire-delivery claim.
 The live inbox publisher and parked snapshot-restoration worker remain distinct.
@@ -224,7 +224,7 @@ transport. Direct remote HTTP is rejected before opening native connections.
 
 A bounded native mechanics run initially FAILED at terminal coverage because
 the connector treated scheduled asynchronous work as accepted cache rows.
-The repaired [frontier accounting](GLM_TAP_FRONTIERS.md) passed the same native
+The repaired [frontier accounting](../glm/GLM_TAP_FRONTIERS.md) passed the same native
 two-turn probe: two snapshot versions applied on both GLM ranks, forward streams
 completed, and the supervised owner process exited without surviving children.
 This used synthetic memory, not translated Qwen memory; Qwen was not loaded.
@@ -352,7 +352,7 @@ now include the bounded reciprocal recall success above, but do not qualify a re
 The runtime-owned coordinator now composes the owner sockets and frozen
 translators, with local regression coverage. Installed-OMP/native repetition
 now has a successful bounded two-actor proof with independent cleanup receipts,
-described in [Native owner exchange](NATIVE_OWNER_EXCHANGE.md).
+described in [Native owner exchange](../../guides/NATIVE_OWNER_EXCHANGE.md).
 Later attempts reached three MCDMA exchange epochs and reaped both workers,
 but their subagent completion checks failed. A local installed-OMP replay
 identified a qualification-fixture error: it rewrote a valid flat yield into

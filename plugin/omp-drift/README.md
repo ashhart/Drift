@@ -2,9 +2,9 @@
 
 This plugin controls the local reference worker service inside OMP through typed commands and a status board. It does not connect OMP or Duo to the live GLM/Qwen workers. Live startup is BLOCKED; `/drift start --reference` explicitly opts into the reference lifecycle demonstration. The board and model-turn status identify this limitation.
 
-Duo remains the separate text-based comparison workflow. The model runtime owns private caches and translated memory; MCDMA is a possible future transport backend, not that runtime. The remaining integration work is recorded in `docs/OMP_LIVE_INTEGRATION.md` in the Drift repository.
+Duo remains the separate text-based comparison workflow. The model runtime owns private caches and translated memory; MCDMA is a possible future transport backend, not that runtime. The remaining integration work is recorded in `docs/reference/omp/OMP_LIVE_INTEGRATION.md` in the Drift repository.
 
-The service is a separate Python process, started from the Drift project (`python -m drift.runtime.service`, documented there). It speaks the protocol in `docs/SERVICE_PROTOCOL.md`: newline-delimited JSON over TCP on `127.0.0.1`, every line carrying an `auth` field that is the hex HMAC-SHA256 of the message's canonical JSON (keys sorted at every level, no whitespace, ASCII-only strings) without `auth`. Unauthenticated or malformed lines close the connection in both directions.
+The service is a separate Python process, started from the Drift project (`python -m drift.runtime.service`, documented there). It speaks the protocol in `docs/reference/service/SERVICE_PROTOCOL.md`: newline-delimited JSON over TCP on `127.0.0.1`, every line carrying an `auth` field that is the hex HMAC-SHA256 of the message's canonical JSON (keys sorted at every level, no whitespace, ASCII-only strings) without `auth`. Unauthenticated or malformed lines close the connection in both directions.
 
 ## Environment
 

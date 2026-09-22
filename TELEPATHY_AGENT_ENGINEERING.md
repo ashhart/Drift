@@ -31,7 +31,7 @@ At each ticket completion, update `docs/agent-progress.md` with the stage, commi
 
 ### 0.2 Source and decision precedence
 
-`[P1]` is the supplied **Telepathy: engineering plan**, archived verbatim at `docs/original_plan.md`. `[R1]` is the reviewed build schematic shown in the conversation, including receiver-local memory, canonical pre-RoPE export, causal scheduling, isolated audit, and the workspace side-channel boundary. `[D#]` denotes an explicit implementation decision in this handoff. `[S#]` denotes outside primary-source verification, listed in §14.
+`[P1]` is the supplied **Telepathy: engineering plan**, archived verbatim at `docs/history/original_plan.md`. `[R1]` is the reviewed build schematic shown in the conversation, including receiver-local memory, canonical pre-RoPE export, causal scheduling, isolated audit, and the workspace side-channel boundary. `[D#]` denotes an explicit implementation decision in this handoff. `[S#]` denotes outside primary-source verification, listed in §14.
 
 Preserve P1 where it is not amended. R1 and the explicit changes in §1 define what to build. The original archive is historical input, not permission to revive a superseded assumption. The reference implementation does not override an integration gate or justify a scientific claim.
 
@@ -528,7 +528,7 @@ An eight-layer, 4,096-token FP16 window reread at 10 steps/s in both directions 
 
 ### 14.1 Supplied basis
 
-**[P1]** `Pasted markdown(9).md`, “Telepathy: engineering plan,” provided in this conversation; archived at `docs/original_plan.md`. Component terminology, deployment intent, experiment sequence and M0–M6 originate there. References in this file identify its original section labels rather than pretending it proves implementation success.
+**[P1]** `Pasted markdown(9).md`, “Telepathy: engineering plan,” provided in this conversation; archived at `docs/history/original_plan.md`. Component terminology, deployment intent, experiment sequence and M0–M6 originate there. References in this file identify its original section labels rather than pretending it proves implementation success.
 
 **[R1]** Reviewed build schematic displayed in the conversation. Receiver-local foreign banks, explicit completion, private mailbox branches, one-epoch-lag scheduling, external audit and declared E4 artifact channels are retained. The small contact-sheet images were not treated as a substitute for an unavailable editable engineering source or local repository.
 

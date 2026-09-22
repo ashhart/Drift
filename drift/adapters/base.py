@@ -1,4 +1,4 @@
-"""Model-agnostic adapter contract (docs/ADAPTERS.md) for hybrid HF decoders.
+"""Model-agnostic adapter contract (docs/guides/ADAPTERS.md) for hybrid HF decoders.
 
 An adapter owns one frozen model instance. It substitutes the attention modules of
 the KV-bearing layers with subclasses that run the stock math unchanged and add

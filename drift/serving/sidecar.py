@@ -1,4 +1,4 @@
-"""Translator sidecar between serving connectors (docs/SERVING_INTEGRATION.md).
+"""Translator sidecar between serving connectors (docs/reference/service/SERVING_INTEGRATION.md).
 
 A tapping server writes canonical entries to `<root>/<session>/tap/<name>`. The sidecar turns
 them into pool rows with the sender's writer, records the publication as an authenticated

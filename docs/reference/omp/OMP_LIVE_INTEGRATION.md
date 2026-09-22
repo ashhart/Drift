@@ -29,7 +29,7 @@ The regression first failed because an unqualified live request connected and st
 
 ## Next implementation gates
 
-1. The installed provider/tool-call contract now passes the no-inference probe in `OMP_PROVIDER_CONTRACT.md`; build a worker-session adapter around the real tokenizer, chat template, request IDs and persistent native state, since ordinary completion responses alone do not expose the required cache operations.
+1. The installed provider/tool-call contract now passes the no-inference probe in `docs/reference/omp/OMP_PROVIDER_CONTRACT.md`; build a worker-session adapter around the real tokenizer, chat template, request IDs and persistent native state, since ordinary completion responses alone do not expose the required cache operations.
 2. Add authenticated capability and manifest binding before any real-worker start, including frozen model and translator hashes, supported lifecycle operations and approved per-session limits; reject reference, absent or unsupported capabilities for a live request.
 3. Qualify acknowledged pause, cancellation and remote memory release, plus the causal delivery and source-ownership prerequisites, on the actual workers under approved limits; a killed SSH client is insufficient evidence that server-side inference stopped.
 4. Connect the qualified session adapter to OMP tool dispatch with private worker identities and declared repository/artifact access, then evaluate a bounded repository task against Duo with external hidden checks and measured cost.

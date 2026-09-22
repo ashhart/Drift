@@ -1,4 +1,4 @@
-"""Worker service CLI and stable public imports; see docs/SERVICE_PROTOCOL.md."""
+"""Worker service CLI and stable public imports; see docs/reference/service/SERVICE_PROTOCOL.md."""
 from __future__ import annotations
 import argparse
 import hashlib

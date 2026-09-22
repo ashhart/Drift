@@ -1,0 +1,17 @@
+{
+  "name": "drift-note-vs-memory",
+  "label": "PREREGISTERED on 2026-09-21 before any handover note was generated or scored",
+  "question": "A written handover carries only what the sender chose to say. Does a receiver answer more questions from the sender's MEMORY than from the sender's NOTE, when the sender did not know what would be asked?",
+  "design": {
+    "items": "the 120 passages and 240 questions of Test A (scripts/live/qa_v4.py selection from local/live/gen_v4_eval.jsonl), unchanged",
+    "memory_arm": "ALREADY MEASURED and not rerun: Qwen with GLM's translated memory (v4), 0.9792 over ssh and 0.9750 over MCDMA on these same questions. The comparison uses the MCDMA run's per-question outcomes (local/live/frontier/qa_v4_mcdma/report.json).",
+    "note_arms": "GLM (the same model that read the passage, thinking off, temperature 0) writes a handover note for a colleague who will continue the work and cannot see the document; it is NOT told the questions. Two budgets: at most 25 words and at most 50 words. Qwen answers each question with the note as its only context, same chat format, greedy, 160 new tokens, same containment scoring as Test A.",
+    "controls_already_measured": "full passage as text 0.9833 (MCDMA run), no memory 0.0083"
+  },
+  "hypotheses": {
+    "N1_note50_loses_facts": "EM(memory) - EM(note, 50 words) >= 0.15 AND exact clustered sign-flip test over passages p < 0.05",
+    "N2_note25_loses_more": "EM(memory) - EM(note, 25 words) >= 0.30 AND the same test p < 0.05"
+  },
+  "outcome_labels": "SUPPORTED if N1 and N2; PARTLY if only N2; NOT SUPPORTED otherwise. Reported whatever the outcome.",
+  "limits": "Short synthetic passages with six to eight facts each; a longer note or the full passage as text recovers the facts (the text control is 0.98). The claim tested is about what a bounded, question-blind written handover drops, not about text in general. The memory arm was measured before this file was written; only the note arms are new."
+}

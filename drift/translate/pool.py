@@ -5,7 +5,7 @@ mapped layer -> pool vector) and a reader per level (pool vector -> its canonica
 entry). Members never map to each other directly. The pool format is fitted once by
 the founding members, then frozen; later members enroll against it.
 
-Layouts (docs/ADAPTERS.md descriptor): `kv_split` entries are KV [T,H,D] pairs and
+Layouts (docs/guides/ADAPTERS.md descriptor): `kv_split` entries are KV [T,H,D] pairs and
 flatten to width 2*H*D; `mla_latent` entries are [T,C] and are already flat.
 
 Fitting is closed form here (centered ridge / PCA in float64). `kind="mlp"` adds a

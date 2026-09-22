@@ -1,0 +1,45 @@
+{
+ "kind": "PREREGISTERED EVALUATION (note versus memory)",
+ "questions": 240,
+ "memory_em": 0.975,
+ "text_em": 0.9833,
+ "budgets": {
+  "50": {
+   "note_em": 0.8083,
+   "answer_literally_present_in_note": 0.7958,
+   "memory_minus_note": 0.1667,
+   "clustered_sign_flip_p": 7.088374331942759e-10,
+   "bootstrap_95": {
+    "estimate": 0.16666666666666666,
+    "low": 0.11666666666666667,
+    "high": 0.21666666666666667,
+    "level": 0.95,
+    "passages": 120,
+    "questions": 240,
+    "draws": 10000
+   },
+   "median_note_words": 44,
+   "max_note_words": 63,
+   "supported": true
+  },
+  "25": {
+   "note_em": 0.65,
+   "answer_literally_present_in_note": 0.6167,
+   "memory_minus_note": 0.325,
+   "clustered_sign_flip_p": 5.082197683525802e-18,
+   "bootstrap_95": {
+    "estimate": 0.325,
+    "low": 0.2625,
+    "high": 0.3875,
+    "level": 0.95,
+    "passages": 120,
+    "questions": 240,
+    "draws": 10000
+   },
+   "median_note_words": 25,
+   "max_note_words": 123,
+   "supported": true
+  }
+ },
+ "verdict": "SUPPORTED"
+}

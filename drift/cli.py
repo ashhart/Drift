@@ -36,25 +36,45 @@ def member_spec(args: argparse.Namespace, role: str) -> dict:
     }
 
 
+EPILOG = """exit codes:
+  0  PASSED     the requested operation succeeded
+  1  FAILED     the operation ran and did not pass
+  2  BLOCKED    created, but prerequisites are missing (they are listed in the output)
+  3  INVALID    the request or the supplied evidence is not usable
+
+examples:
+  drift adapter list
+  drift adapter scaffold my_model/torch --model-type my_model --output ./drift-adapter-my-model
+  drift tap status ./local/taps/my-pair
+
+Creating a tap project needs a checkpoint, adapter id, host and runtime lock for each
+side; see docs/guides/TAP_CLI.md. Without qualification reports and translators the project is
+written as BLOCKED and tells you which gates are missing. This command never loads a
+backbone model, trains a translator or starts a remote service."""
+
+
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="drift")
-    commands = root.add_subparsers(dest="command", required=True)
-    tap = commands.add_parser("tap")
-    tap_commands = tap.add_subparsers(dest="tap_command", required=True)
-    create = tap_commands.add_parser("create")
-    create.add_argument("name")
+    root = argparse.ArgumentParser(
+        prog="drift",
+        description="Inventory local checkpoints, check the evidence needed to link them, and scaffold adapters.",
+        epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = root.add_subparsers(dest="command", required=True, metavar="{tap,adapter}")
+    tap = commands.add_parser("tap", help="create and inspect two-model tap projects")
+    tap_commands = tap.add_subparsers(dest="tap_command", required=True, metavar="{create,status}")
+    create = tap_commands.add_parser("create", help="hash two checkpoints and record which gates they pass")
+    create.add_argument("name", help="project name recorded in the inventory")
     member_arguments(create, "source")
     member_arguments(create, "target")
-    create.add_argument("--output", type=Path, required=True)
-    status = tap_commands.add_parser("status")
-    status.add_argument("path", type=Path)
-    adapter = commands.add_parser("adapter")
-    adapter_commands = adapter.add_subparsers(dest="adapter_command", required=True)
-    adapter_commands.add_parser("list")
-    scaffold = adapter_commands.add_parser("scaffold")
-    scaffold.add_argument("adapter_id")
-    scaffold.add_argument("--model-type", required=True)
-    scaffold.add_argument("--output", type=Path, required=True)
+    create.add_argument("--output", type=Path, required=True, help="project directory to create; never overwritten")
+    status = tap_commands.add_parser("status", help="rehash a project and recompute its verdict")
+    status.add_argument("path", type=Path, help="an existing tap project directory")
+    adapter = commands.add_parser("adapter", help="list installed adapters or scaffold a new one")
+    adapter_commands = adapter.add_subparsers(dest="adapter_command", required=True, metavar="{list,scaffold}")
+    adapter_commands.add_parser("list", help="show built-in and installed adapter loaders")
+    scaffold = adapter_commands.add_parser("scaffold", help="create a separate adapter package with a blocked loader")
+    scaffold.add_argument("adapter_id", help="for example my_model/torch")
+    scaffold.add_argument("--model-type", required=True, help="the checkpoint config model_type this adapter admits")
+    scaffold.add_argument("--output", type=Path, required=True, help="package directory to create")
     return root
 
 

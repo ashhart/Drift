@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+title: "Drift: a memory link between frozen language models"
+message: "If you refer to this work, please cite it as below."
+type: software
+authors:
+  - family-names: ashhart
+    alias: ashhart
+repository-code: "https://github.com/ashhart/Drift"
+abstract: >-
+  Drift connects frozen language models through their key-value caches.
+  Model-specific taps capture working memory, trained translators map it into a
+  form the receiving model can attend to, and the receiver reads it alongside
+  its own context. Backbone weights stay frozen and the designated activation
+  channel carries no task text or token IDs. This is experimental research
+  code; published results are bounded engineering qualifications rather than
+  general recall guarantees.
+keywords:
+  - key-value cache
+  - model-to-model communication
+  - agent workflows
+  - RDMA
+  - frozen models
+license: Apache-2.0

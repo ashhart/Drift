@@ -1,4 +1,4 @@
-"""Model registry (docs/ADAPTERS.md): one entry per checkpoint with its adapter id,
+"""Model registry (docs/guides/ADAPTERS.md): one entry per checkpoint with its adapter id,
 pinned hashes, qualification evidence and fitted translators. Entries are written
 only from evidence files; nothing here fabricates a hash."""
 from __future__ import annotations

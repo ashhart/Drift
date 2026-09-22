@@ -17,7 +17,7 @@ const manifestSha256 = createHash("sha256").update("manifest").digest("hex");
 
 /**
  * In-test worker service: validates HMAC on every line, tracks the phase
- * machine from docs/SERVICE_PROTOCOL.md and answers each op with a typed
+ * machine from docs/reference/service/SERVICE_PROTOCOL.md and answers each op with a typed
  * result. Records every authenticated request for assertions.
  */
 export class FakeService {

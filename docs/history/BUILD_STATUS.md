@@ -1,10 +1,14 @@
 # Build status against the reviewed schematic
 
+> Historical record, preserved from the pre-cleanup documentation.
+> Not current operating instructions; see [current status](../STATUS.md).
+
 ## Current reading, 21 September 2026
 
 The tables below are the 20 September snapshot, not the current live readiness
-verdict. Later exploratory MCDMA results are recorded in `FRONTIER.md`, sections
-9-14. The reported six-case appointment demonstration was development-tuned;
+verdict. References to sections 9-14 of the former FRONTIER notebook concern
+privately retained historical records, not the current status page.
+The reported six-case appointment demonstration was development-tuned;
 it does not pass a fresh held-out evaluation or the prior-epoch M2 contract.
 The takeover verified the dedicated Spark targets were still listening and
 checked deployment files read-only, without rerunning model inference.
@@ -16,7 +20,7 @@ connector manifest records the earlier five-module installation on both Sparks.
 The integrated local suite passes 1,108 tests with four environment skips;
 the plugin passes 143 tests and type checking. These are engineering checks,
 not proof of improved recall or deployed KV-only OMP/Pi subagents. See
-`GLM_CACHE_COMMIT.md` and `ACTIVATION_CHILD_WAKE.md` for the exact limits.
+`docs/reference/glm/GLM_CACHE_COMMIT.md` and `docs/reference/omp/ACTIVATION_CHILD_WAKE.md` for the exact limits.
 Local tests and candidate preparation do not deploy or qualify these changes.
 Required real-adapter skips, runtime parity limits, scorer isolation and
 approved compute budgets remain separate gates.
@@ -70,7 +74,7 @@ memory, long contexts, the mailbox/thought channel, MCDMA transport, or a duel.
 | Counterfactual replay | `eval/replay.py` | M3.3 PASSED (mechanics). Held-out incorporation NOT RUN. |
 | OFFLINE / drift-train | kit `train/*`, `train/behavior.py`, `train/probe.py`, `scripts/parity_real.py` | Regression, behavior and probe loops PASSED on toys; level-2 parity runner blocks without a preregistered tolerance. No real training. |
 | READ-ONLY / audit + drift-eval | `eval/e1.py`, `eval/e2.py`, `eval/e3.py`, `eval/hive_experiments.py`, `eval/generate.py`, kit `eval/metrics.py` | Harnesses PASSED incl. E3 arms with budgets and the hive handoff / swap-in / departure arms. Formal E1–E4 NOT RUN. |
-| Control plane: worker service (typed, HMAC) | `runtime/service.py`, `runtime/builders.py`, `docs/SERVICE_PROTOCOL.md` | PASSED on toy members. `from_manifest` refuses unqualified real members. |
+| Control plane: worker service (typed, HMAC) | `runtime/service.py`, `runtime/builders.py`, `docs/reference/service/SERVICE_PROTOCOL.md` | PASSED on toy members. `from_manifest` refuses unqualified real members. |
 | Control plane: omp-drift plugin | `plugin/omp-drift/` | PASSED: 26 tests, strict typecheck, live run against the real service. |
 | E4 workspace / declared side channel | `eval/workspace.py` | PASSED (separate clones, metered reads, hidden tests outside clones). Duel NOT RUN. |
 | MLX / Metal adapters (M4.1) | `adapters/mlx_qwen4_exp.py`, `adapters/mlx_glm5_next.py`, `adapters/mlx_fixtures.py` | Level-1 PASSED on tiny configs: cross-runtime stock parity torch↔MLX at 2e-6, foreign-path parity at 2e-5, 34 tests (1 xfail on a sparse-indexer tie). Requires `MLX_METAL_GPU_ARCH=applegpu_g16s` on M5 for fp32 (default kernels run TF32-class precision). Real weights NOT RUN. |

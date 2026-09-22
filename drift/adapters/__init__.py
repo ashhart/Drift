@@ -1,1 +1,1 @@
-"""Architecture adapters. Each one is qualified separately (docs/ADAPTERS.md)."""
+"""Architecture adapters. Each one is qualified separately (docs/guides/ADAPTERS.md)."""

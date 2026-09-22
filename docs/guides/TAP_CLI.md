@@ -39,7 +39,7 @@ drift adapter scaffold minimax_m3/torch \
 ```
 
 The scaffold registers a `drift.adapters` entry point and starts with a deliberate `BLOCKED` loader.
-Implement the adapter contract in `docs/ADAPTERS.md`, then pass tiny-config and real-weight qualification before supplying its report to `tap create`.
+Implement the adapter contract in `docs/guides/ADAPTERS.md`, then pass tiny-config and real-weight qualification before supplying its report to `tap create`.
 The CLI does not infer cache boundaries, rotary behavior, or foreign-attention injection from a model name.
 
 ## Compile a runnable local tap
@@ -51,5 +51,6 @@ Both translator directories must be the `pool.v1` artifact written by `save_tran
 When those gates pass, the project status is `PASSED` and the CLI writes `run.json` plus registry entries for the existing service builder.
 `drift tap status` recomputes that verdict from the inventory files. A `tap.json` whose status disagrees with the evidence is `INVALID`.
 
-Two different hosts remain `BLOCKED` because the repository has no qualified remote two-worker coordinator yet.
+Two different hosts remain `BLOCKED` in the CLI because it does not create portable native-worker profiles or launch a remote pair.
+The separately configured native GLM/Qwen coordinator has bounded lifecycle evidence, described in [the native guide](NATIVE_OWNER_EXCHANGE.md); that does not qualify arbitrary CLI host assignments.
 The tap project still records both host assignments, but it does not emit a misleading runnable manifest.

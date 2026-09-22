@@ -12,7 +12,7 @@ The goal is a choice in your workflow: ordinary text communication, or a Drift m
 
 > Experimental. GLM and Qwen have completed three two-way MCDMA exchanges through a controlled OMP parent/subagent workflow, including a separate linked-cancellation check with both workers reaped. This is a bounded engineering qualification, not a general recall guarantee or a turnkey Duo integration. You can use the CLI, extend adapters and run the local reference today.
 
-[CLI guide](docs/TAP_CLI.md) · [Adapter contract](docs/ADAPTERS.md) · [Exchange API](docs/EXCHANGE_MODULES.md) · [Current progress](docs/agent-progress.md)
+[Documentation](docs/README.md) · [Current status](docs/STATUS.md) · [CLI guide](docs/guides/TAP_CLI.md) · [Adapter contract](docs/guides/ADAPTERS.md)
 
 ## What crosses the link
 
@@ -89,9 +89,9 @@ drift adapter scaffold my_model/torch \
   --output ./local/drift-adapter-my-model
 ```
 
-The scaffold deliberately starts with a blocked loader. Implement the [adapter contract](docs/ADAPTERS.md), then qualify it on tiny configurations and real weights. A model name is not a compatibility guarantee, including MiniMax or Nemotron variants.
+The scaffold deliberately starts with a blocked loader. Implement the [adapter contract](docs/guides/ADAPTERS.md), then qualify it on tiny configurations and real weights. A model name is not a compatibility guarantee, including MiniMax or Nemotron variants.
 
-The [full CLI guide](docs/TAP_CLI.md) covers qualification artifacts, translator inputs and plugin registration.
+The [full CLI guide](docs/guides/TAP_CLI.md) covers qualification artifacts, translator inputs and plugin registration.
 
 ## Duo and `/drift`
 
@@ -105,22 +105,22 @@ omp plugin link "$PWD/plugin/omp-drift"
 
 That adds the command without modifying Duo's source. Configure the local service and authentication described in the [plugin guide](plugin/omp-drift/README.md) before using `/drift start --reference`.
 
-The command currently controls the reference service. It does **not** turn an existing Duo room into a native KV-linked pair. The persistent native coordinator and provider hook have passed a bounded, three-epoch parent/subagent check with GLM and Qwen, plus cancellation after a confirmed exchange. They still require operator-owned worker startup and pinned private profiles; automatic Duo room startup and a text/Drift mode selector are not supported. See [native exchange setup and evidence](docs/NATIVE_OWNER_EXCHANGE.md).
+The command currently controls the reference service. It does **not** turn an existing Duo room into a native KV-linked pair. The persistent native coordinator and provider hook have passed a bounded, three-epoch parent/subagent check with GLM and Qwen, plus cancellation after a confirmed exchange. They still require operator-owned worker startup and pinned private profiles; automatic Duo room startup and a text/Drift mode selector are not supported. See [native exchange setup and evidence](docs/guides/NATIVE_OWNER_EXCHANGE.md).
 
 ## Add Drift to another workflow
 
 The reusable exchange core takes a source, link and sink. It owns the cursors, capacity checks and poisoned-session state while runtime adapters own the model caches and transport calls.
 
-Keep that coordinator alive across exchanges. Spawning a new CLI process at each tool boundary loses the state that makes sequencing safe. See the [exchange contracts and integration limits](docs/EXCHANGE_MODULES.md) before connecting a main agent, subagent or another host runtime.
+Keep that coordinator alive across exchanges. Spawning a new CLI process at each tool boundary loses the state that makes sequencing safe. See the [exchange contracts and integration limits](docs/reference/exchange/EXCHANGE_MODULES.md) before connecting a main agent, subagent or another host runtime.
 
 | Code | Responsibility |
 | --- | --- |
-| [`drift/taps/`](drift/taps/) and [`drift/cli.py`](drift/cli.py) | Checkpoint inventory, qualification checks and tap projects |
-| [`drift/adapters/`](drift/adapters/) and [`drift/translate/`](drift/translate/) | Model-specific taps and memory translators |
-| [`drift/exchange/`](drift/exchange/) | Stateful exchange contracts, live adapters and coordinator |
-| [`drift/serving/`](drift/serving/) | Native worker sessions, cache application and MCDMA integration |
-| [`plugin/omp-drift/`](plugin/omp-drift/) | OMP commands, worker provider and lifecycle controls |
-| [`drift/eval/`](drift/eval/) and [`tests/`](tests/) | Evaluation machinery and engineering regressions |
+| [`drift/taps/`](drift/taps) and [`drift/cli.py`](drift/cli.py) | Checkpoint inventory, qualification checks and tap projects |
+| [`drift/adapters/`](drift/adapters) and [`drift/translate/`](drift/translate) | Model-specific taps and memory translators |
+| [`drift/exchange/`](drift/exchange) | Stateful exchange contracts, live adapters and coordinator |
+| [`drift/serving/`](drift/serving) | Native worker sessions, cache application and MCDMA integration |
+| [`plugin/omp-drift/`](plugin/omp-drift) | OMP commands, worker provider and lifecycle controls |
+| [`drift/eval/`](drift/eval) and [`tests/`](tests) | Evaluation machinery and engineering regressions |
 
 ## If you are an agent
 

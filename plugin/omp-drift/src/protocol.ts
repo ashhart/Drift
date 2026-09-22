@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isRecord } from "./util";
 
-/** Fixed integer op enum from docs/SERVICE_PROTOCOL.md. */
+/** Fixed integer op enum from docs/reference/service/SERVICE_PROTOCOL.md. */
 export const Op = {
 	SETUP: 1,
 	START: 2,

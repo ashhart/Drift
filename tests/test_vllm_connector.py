@@ -1,7 +1,7 @@
 """The vLLM shim against a fake `vllm` package that mimics the scheduler and worker objects.
 
 This qualifies the shim's LOGIC only (planning, slot mapping, tap, inject, exchange files).
-It says nothing about a live server; see docs/SERVING_INTEGRATION.md for that ladder.
+It says nothing about a live server; see docs/reference/service/SERVING_INTEGRATION.md for that ladder.
 """
 from __future__ import annotations
 import sys

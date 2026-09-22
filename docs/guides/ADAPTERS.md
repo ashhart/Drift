@@ -39,7 +39,7 @@ implementation.
 | `frozen_digest()` | Proves backbone weights are unchanged |
 
 Rules:
-- Adapters never patch a serving stack or write into its paged cache (P1 §7).
+- This adapter contract is separate from the native serving connectors, which have their own qualified cache-write boundaries.
 - Sparse selectors (indexers) stay native-only. Foreign entries bypass them as a bounded,
   gated block (research note §4).
 - An adapter may refuse inputs it has not qualified, and must refuse explicitly.
@@ -83,5 +83,5 @@ registry/<model-id>/
 |---|---|
 | `drift_toy/torch` | exists (kit reference) |
 | `qwen3` and `llama/torch` | exists (kit HF adapter; parity tests pass on tiny configs) |
-| `qwen4_exp/torch`, `glm5_next/torch` | designed (research note); tiny-config parity pending authorization |
-| `qwen4_exp/mlx`, `glm5_next/mlx` | planned on oMLX's vendored model code |
+| `qwen4_exp/torch`, `glm5_next/torch` | implemented; native checkpoint/runtime qualification is still required |
+| `qwen4_exp/mlx`, `glm5_next/mlx` | implemented; optional MLX environment and separate native qualification required |

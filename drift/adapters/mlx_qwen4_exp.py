@@ -1,6 +1,6 @@
 """Qwen3.8-Flash-Next (`qwen4_exp`) adapter on the MLX runtime (mlx-vlm 0.7.1).
 
-Same contract as `qwen4_exp.py` (docs/ADAPTERS.md), same canonical boundary: K after
+Same contract as `qwen4_exp.py` (docs/guides/ADAPTERS.md), same canonical boundary: K after
 `k_norm` and before rotary, V unrotated, `[T, Hkv, D]`. Foreign entries are rephased
 with the model's own M-RoPE at recency positions and enter the same softmax as native
 keys with `log g` added; they bypass the QSA indexer.

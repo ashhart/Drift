@@ -1,6 +1,6 @@
 """BINDING training on the real pair (Studio, oMLX runtime), both backbones frozen. Derived from studio_train_provenance.py.
 
-Problem (docs/FRONTIER.md): with many SIMILAR facts in one document, translated memory confuses which value belongs to which
+Problem (docs/evaluation/MISS_DIAGNOSIS.md): with many SIMILAR facts in one document, translated memory confuses which value belongs to which
 thing (0.67 at 500 tokens falling to 0.2 at 4k) although the reader's own cache stays near 1.0, and refitting the linear
 translator on distractor-rich documents barely helps. Here the translator is trained END TO END on that task: teacher = Qwen
 with the document as text, student = Qwen with GLM's entries translated by the frozen context base + frozen fan-out residuals

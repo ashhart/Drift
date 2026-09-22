@@ -1,18 +1,28 @@
-# Drift roadmap (owner goal, 20 September 2026)
+# Roadmap
 
-Goal: models drifting together to work on projects. Several LLMs, on different machines and serving stacks,
-continuously reading, writing and attending to each other's attention over MCDMA, behaving like one mind with
-several specialities. Every stage ends in a measurement with criteria fixed before the run (AGENTS.md rules apply).
+[Current status](STATUS.md) separates completed engineering checks from open
+product and scientific gates. This roadmap does not authorize model execution,
+training, service restarts or changes to a frozen evaluation.
 
-| # | Stage | What gets built | Proof it works | Status |
-|---|---|---|---|---|
-| D0 | Handshake | one model reads, the other answers from its translated cache, both directions, real serving stacks | preregistered QA, both directions | **PASSED** (0.875 / 0.85 vs <=0.05 controls) |
-| D1 | Reasoning over borrowed memory | split-knowledge tasks: part of the answer is only in the partner's memory, part only in the reader's own context (conjunction, comparison, two-hop) | preregistered; drift vs text-in-prompt vs own-context-only vs wrong memory | **PASSED** (hop 0.70, sum 0.45, conj 0.00 vs wrong <=0.10; own-cache control 0.95 / 0.70 / 0.15): reasons over borrowed memory, but cannot tell whose memory it is |
-| D2 | Continuous drift | both models generate at once; every epoch each taps its new entries and the other appends them to its RUNNING cache (one-epoch lag). Studio: drift worker (exists). Sparks: connector extension for decode-time taps and progressive writes into a reserved span | two-agent task solved only if information flows both ways while both are mid-generation; degeneration detectors on | mechanics LIVE (exploratory): entries cross both ways every ~0.5 s while both generate; readers absorb the partner's memory as their own. Needs a gate, provenance and calibration before it is measured |
-| D3 | Long context | selector keys become part of the canonical entry and are translated too (both models pick top-2048 entries by a separate key); reader prompts >128 tokens on the vLLM side; memories of thousands of tokens | QA at 4k / 16k / 64k memory | planned |
-| D4 | Third mind | DeepSeek V4.1 (attention + cache in oMLX on the Studio, experts on the Sparks over MCDMA) enrolled by a pack fitted against pool.v2 without touching the GLM or Qwen packs; store-and-swap through the pool because the hosts cannot hold all three | DeepSeek answers from GLM and Qwen memory and vice versa | research running |
-| D5 | MCDMA callosum | pool rows move through MCDMA shared-memory mailboxes instead of files over ssh; HMAC-framed (wire2) | same QA numbers, epoch latency measured | research running |
-| D6 | Project work | omp-drift: two OMP agents (different models) on one repository, drifting while they work; Duo (text only) is the baseline; hidden tests, budgets, E4 rules from the spec | the M5 duel: drift arm vs text arm vs solo, preregistered | planned |
-| D7 | Safety and honesty | how much source text can be recovered from pool rows; drift-aware system prompt that does not confabulate on empty memory; abort / hard-off on the live path | leak probe + confabulation rate | planned |
+## Product work
 
-Order of work: D1 -> D2 -> D3, with D4/D5 research in parallel, then D6 on top of D2+D3. D7 items ride along with D2.
+The next product gap is operator-independent native setup for the supported
+GLM/Qwen pair, followed by a stock Duo task with declared channels and bounded
+cleanup. Preserve the tested persistent coordinator and stage/confirm ordering.
+Do not substitute the CLI's local reference mode for a qualified native pair.
+
+Recall, source attribution, final-tail coverage and repeated-run reliability
+need separate evidence. More adapters and translators follow their own native
+parity and qualification gates rather than a model-name compatibility list.
+
+## Research sequence
+
+The binding [engineering specification](../TELEPATHY_AGENT_ENGINEERING.md)
+retains M-1 through M6: contracts and isolation, native correctness, cross-family
+transfer, continuous coupling, mailbox behavior, native transport, fair project
+comparison and competition. Implement the first failing gate; local tests or
+a bounded lifecycle run do not advance a scientific stage without its evidence.
+
+The earlier D0-D7 product/research proposal is preserved in the
+[dated roadmap](history/ROADMAP-2026-09-20.md), not used as today's deployment
+inventory or as a promise to support additional families in this release.
