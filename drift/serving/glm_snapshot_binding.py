@@ -8,9 +8,11 @@ from drift.serving.live_publication_transport import PublicationTransport
 class BankRestorer(TurnRestorer):
     def __init__(self, previous, bank, route):
         self.bank, self.route, self.captured, self.boundary = bank, route, None, threading.RLock()
+        self.publication_factory = getattr(previous, 'publication_factory', None)
         super().__init__(previous.verifier, self.publication, rows=previous.rows, digest=previous.digest,
                          root=previous.root, deadline=previous.deadline, max_input_bytes=previous.max_input_bytes,
-                         linked=True, clock=previous.clock, outbox=previous.outbox)
+                         linked=True, clock=previous.clock, outbox=previous.outbox,
+                         causal_prefill=previous.causal_prefill)
 
     def remaining(self):
         require(not self.bank.failed)
@@ -18,6 +20,8 @@ class BankRestorer(TurnRestorer):
 
     def publication(self, name):
         captured = self.bank.validate(self.captured)
+        if self.publication_factory is not None:
+            return self.publication_factory(captured.path, captured.sha256, name, self.remaining)
         return self.route.bind(PublicationTransport(captured.path, captured.sha256, name, self.route.spec['peer'], self.remaining))
 
     def prepare(self, body):
@@ -57,7 +61,10 @@ def bind_snapshot_bank(session, bank, route, *, translator_sha256):
     require(captured.recipe_sha256 == translator_sha256)
     require(captured.sha256 == previous.digest and captured.rows == previous.rows)
     require(session.restoration_ownership == {'source_worker': captured.source_worker, 'target_worker': captured.target_worker})
-    route.validate()
+    if getattr(previous, 'publication_factory', None) is None:
+        route.validate()
+    else:
+        require(route is None)
     restorer = BankRestorer(previous, bank, route)
     def prepare(body):
         restorer.max_input_bytes = session.limits['max_input_bytes']

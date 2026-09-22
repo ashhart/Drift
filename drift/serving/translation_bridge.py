@@ -18,28 +18,34 @@ def output_root(recipe, direction, output, max_output_rows, max_output_bytes):
 
 def translate_tap(recipe, path, receipt, *, session, source_worker, target_worker, seq, first, output, max_source_rows, max_source_bytes, max_output_rows, max_output_bytes):
     root=output_root(recipe,'reverse',output,max_output_rows,max_output_bytes)
-    require(max_output_rows>=12 and max_output_bytes<=1048576)
-    output_bound(GLM_LAYOUT,12,max_output_bytes)
+    require(max_output_bytes<=1048576)
     arrays,source=tap_source(path,dict(receipt),session=session,source_worker=source_worker,target_worker=target_worker,seq=seq,first=first,scratch=root,max_rows=max_source_rows,max_bytes=max_source_bytes)
-    return reverse_selected(recipe, arrays, source, source_worker, target_worker, output, max_output_bytes)
+    return reverse_selected(recipe, arrays, source, source_worker, target_worker, output, max_output_bytes, max_output_rows)
 
 
 def translate_own_snapshot(recipe, path, receipt, *, session, source_worker, target_worker, seq, after, output, max_source_bytes, max_output_rows, max_output_bytes):
     from drift.serving.bridge_snapshot import own_snapshot_source
     root=output_root(recipe,'reverse',output,max_output_rows,max_output_bytes)
+    require(recipe.reverse_source_policy=='last_one_own_row' and recipe.reverse_copies==12)
     require(max_output_rows>=12 and max_output_bytes<=1048576)
     output_bound(GLM_LAYOUT,12,max_output_bytes)
     arrays,source=own_snapshot_source(path,dict(receipt),session=session,source_worker=source_worker,target_worker=target_worker,seq=seq,after=after,scratch=root,max_bytes=max_source_bytes)
     return reverse_selected(recipe, arrays, source, source_worker, target_worker, output, max_output_bytes)
 
 
-def reverse_selected(recipe, arrays, source, source_worker, target_worker, output, max_output_bytes):
-    own={layer:np.concatenate((arrays[f'k{layer}'][-1:].reshape(1,-1),arrays[f'v{layer}'][-1:].reshape(1,-1)),axis=1) for layer in QWEN_LAYERS}
+def reverse_selected(recipe, arrays, source, source_worker, target_worker, output, max_output_bytes, maximum=12):
+    policy,copies=recipe.reverse_source_policy,recipe.reverse_copies
+    require(type(copies) is int and (policy,copies) in (('last_one_own_row',12),('all_new_own_rows',1)))
+    rows=source['available_source_rows'] if policy=='all_new_own_rows' else 1
+    integer(rows*copies,maximum);output_bound(GLM_LAYOUT,rows*copies,max_output_bytes)
+    own={layer:np.concatenate((arrays[f'k{layer}'][-rows:].reshape(rows,-1),arrays[f'v{layer}'][-rows:].reshape(rows,-1)),axis=1) for layer in QWEN_LAYERS}
     translated=recipe.reader.read(own,1.0)
-    one=wire_arrays({f'l{layer}':value for layer,value in translated.items()},GLM_LAYOUT,1)
-    payload=wire_arrays({key:np.repeat(value,12,axis=0) for key,value in one.items()},GLM_LAYOUT,12)
+    one=wire_arrays({f'l{layer}':value for layer,value in translated.items()},GLM_LAYOUT,rows)
+    payload=wire_arrays({key:np.repeat(value,copies,axis=0) for key,value in one.items()},GLM_LAYOUT,rows*copies)
     result=publish(output,payload,max_output_bytes)
-    return {**result,**source,'source_worker':source_worker,'target_worker':target_worker,'recipe_sha256':recipe.sha256,'rows':12,'copies':12,'gain_power':1.0,'subset':'last_one_own_row','full_completion':False}
+    return {**result,**source,'source_start':source['source_stop']-rows,'source_rows':rows,
+            'source_worker':source_worker,'target_worker':target_worker,'recipe_sha256':recipe.sha256,
+            'rows':rows*copies,'copies':copies,'gain_power':1.0,'subset':policy,'full_completion':False}
 
 
 def translate_prefix(recipe, path, manifest_sha256, *, publication_seq, session, source_worker, target_worker, output, max_source_rows, max_source_bytes, max_output_rows, max_output_bytes, remaining):

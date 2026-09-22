@@ -86,7 +86,7 @@ class ForeignRowSink:
 
     def commit(self, prepared):
         if prepared is None:
-            return 0
+            raise LiveExchangeError('EXCHANGE_NOTHING_PREPARED')
         entries, keys, order, start, rows = prepared
         sources = start + np.asarray(order, dtype=np.int64)
         positions = self.bank.positions(sources, self.own_position())

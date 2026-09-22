@@ -7,13 +7,17 @@ from pathlib import Path
 import time
 import uuid
 from drift.serving.glm_restore_prompt import reserve_prompt
+from drift.serving.glm_restore_padding import padded_reservation
+from drift.exchange.lifetime import request_scope
 
 
 class TurnRestorer:
-    def __init__(self, verifier, publication, *, rows, digest, root, deadline, max_input_bytes, linked=True, clock=time.monotonic, outbox=None):
+    def __init__(self, verifier, publication, *, rows, digest, root, deadline, max_input_bytes, linked=True, clock=time.monotonic, outbox=None, causal_prefill=False):
         if type(rows) is not int or not 1 <= rows <= 4096 or type(linked) is not bool or not re.fullmatch('[0-9a-f]{64}', digest):
             raise ValueError('invalid restoration recipe')
         self.outbox = outbox
+        if type(causal_prefill) is not bool: raise ValueError('invalid causal prefill policy')
+        self.causal_prefill = causal_prefill
         if outbox is not None and not linked: raise ValueError('outbox requires explicit linked native session')
         self.verifier, self.publication = verifier, publication
         self.rows, self.digest, self.root = rows, digest, Path(root)
@@ -32,7 +36,9 @@ class TurnRestorer:
         reserved = reserve_prompt(body, self.rows)
         if len(json.dumps(reserved).encode()) > self.max_input_bytes:
             raise ValueError('reserved own input exceeds byte budget')
-        proof = self.verifier.verify(body, reserved, self.rows, self.remaining())
+        reserved, proof = padded_reservation(self.verifier, body, self.rows, self.remaining, self.causal_prefill)
+        if len(json.dumps(reserved).encode()) > self.max_input_bytes:
+            raise ValueError('padded own input exceeds byte budget')
         self.remaining()
         name = 'restore-' + uuid.uuid4().hex
         extra = {'cache_salt': 'drift:' + name, 'vllm_xargs': {'skip_writing_prefix_cache': 1}}
@@ -40,10 +46,17 @@ class TurnRestorer:
         if self.linked:
             extra['kv_transfer_params'] = {'drift_session': name, 'drift_reserve': self.rows,
                                            'drift_reserve_start': proof['reserve_start'], 'drift_tap': self.outbox is not None}
+            if self.causal_prefill:
+                extra['kv_transfer_params']['drift_prefill_boundary'] = proof['prefill_boundary']
+        elif self.causal_prefill:
+            extra['kv_transfer_params'] = {'drift_no_link': True, 'drift_reserve': self.rows,
+                                           'drift_reserve_start': proof['reserve_start'],
+                                           'drift_prefill_boundary': proof['prefill_boundary']}
         if len(json.dumps({**reserved, **extra}).encode()) > self.max_input_bytes:
             raise ValueError('prepared input exceeds byte budget')
         if self.outbox is not None:
-            self.outbox.begin(name, proof, body['max_tokens'])
+            with request_scope(self.remaining):
+                self.outbox.begin(name, proof, body['max_tokens'])
         if self.linked:
             if self.root != self.root.resolve() or not self.root.is_dir():
                 raise ValueError('private memory root differs')
@@ -72,7 +85,7 @@ class TurnRestorer:
             raise ValueError('restored output budget changed')
         expected['max_tokens'] = maximum
         if body != expected: raise ValueError('prepared own input changed')
-        return reserve_prompt(body, self.rows)
+        return reserve_prompt(body, self.rows+self.plan['proof'].get('padding_tokens', 0))
 
     def applied(self):
         self.remaining()
@@ -86,7 +99,8 @@ class TurnRestorer:
         outbound = self.outbox.finish(self.plan['name'], self.plan['max_tokens'], self.deadline()) if self.outbox is not None else None
         self.completed.append({'session': self.plan['name'], **self.plan['proof'], 'linked': self.linked,
                                'snapshot_sha256': self.digest, 'receipts': self.plan['receipts'],
-                               'first_token_causality': 'NOT_ESTABLISHED'})
+                               'first_token_causality': 'NOT_ESTABLISHED',
+                               'prefill_policy': 'GUARDED_REQUESTED' if self.causal_prefill else 'UNGUARDED'})
         if outbound is not None: self.completed[-1]['outbox'] = outbound
         self.plan = None
 

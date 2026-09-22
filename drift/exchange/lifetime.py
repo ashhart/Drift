@@ -14,7 +14,13 @@ def checkpoint():
 
 @contextmanager
 def request_scope(check):
-    token = _current.set(check)
+    previous = _current.get()
+    def combined():
+        if previous is not None:
+            previous()
+        if check is not None:
+            check()
+    token = _current.set(combined)
     try:
         yield
     finally:

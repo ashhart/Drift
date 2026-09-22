@@ -4,6 +4,15 @@ import { context, deferred, identity, limits, model, setup, Sink, until } from "
 const create = workerProvider as any;
 const calls = (sink: Sink) => sink.events.filter(event => event.type.startsWith("toolcall") || event.type === "done");
 
+test("worker startup failure poisons the peer boundary before any dispatch hook", async () => {
+  const f = setup(); let aborted = 0, entered = 0;
+  const hook = Object.assign(async () => { entered++; }, { abort: () => { aborted++; } });
+  f.transport.send = () => queueMicrotask(() => f.transport.failure(new Error('startup failed')));
+  const sink = create(f.client, () => new Sink(), { beforeToolDispatch: hook })(model, context);
+  expect((await sink.ended).type).toBe('error');
+  expect(entered).toBe(0); expect(aborted).toBe(1); expect(f.transport.closed).toBe(true);
+});
+
 test("terminal gate withholds the bounded tool tail and preserves semantic order", async () => {
   const f = setup(), release = deferred(); let boundary: any;
   const provider = create(f.client, () => new Sink(), { beforeToolDispatch: (value: any) => { boundary = value; return release.promise; } });
@@ -14,13 +23,16 @@ test("terminal gate withholds the bounded tool tail and preserves semantic order
     expect(sink.events.at(-1).partial.content).toEqual([{ type: "text", text: "prefix" }]);
     f.transport.terminal(); await until(() => boundary);
     expect(boundary.identity).toEqual(identity); expect(boundary.toolNames).toEqual(["echo"]);
-    expect(Object.keys(boundary).sort()).toEqual(["identity", "signal", "toolNames"]);
+    expect(Object.keys(boundary).sort()).toEqual(["identity", "signal", "toolCalls", "toolNames"]);
+    expect(boundary.toolCalls).toEqual([{ name: 'echo', arguments: { secret: 'public test sentinel' } }]);
+    boundary.toolCalls[0].arguments.secret = 'changed by hook';
     expect(boundary.signal).toBeInstanceOf(AbortSignal); expect(boundary.signal.aborted).toBe(false);
     expect(Object.isFrozen(boundary.identity)).toBe(true); expect(Object.isFrozen(boundary.toolNames)).toBe(true);
     expect(calls(sink)).toEqual([]); release.resolve(); const result = await sink.ended;
     expect(result.type).toBe("done");
     expect(result.message.content.map((part: any) => part.type)).toEqual(["text", "toolCall", "text"]);
     expect(result.message.content[2].text).toBe("suffix");
+    expect(result.message.content[1].arguments.secret).toBe('public test sentinel');
   } finally { release.resolve(); f.client.abort(); }
 });
 

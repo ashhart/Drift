@@ -146,7 +146,8 @@ def test_short_memories_are_tiled_across_the_span(connector):
 
 
 def live_request(rid, reserve, prompt=200, name="sess-1"):
-    return NS(request_id=rid, prompt_token_ids=list(range(prompt)), kv_transfer_params={"drift_session": name, "drift_reserve": reserve}, skip_reading_prefix_cache=False)
+    return NS(request_id=rid, prompt_token_ids=list(range(prompt)), kv_transfer_params={"drift_session": name, "drift_reserve": reserve}, skip_reading_prefix_cache=False,
+              num_in_flight_tokens=0, num_stale_output_tokens=0)
 
 
 def test_live_session_writes_progressively_and_taps_only_verified_own_positions(tmp_path, monkeypatch):
@@ -222,7 +223,8 @@ def test_live_session_writes_progressively_and_taps_only_verified_own_positions(
     c.on_new_request(bad)
     assert "must lie inside the prompt" in c._live["L2"]["failed"]
     # a span that starts inside the prompt: writes land at start+filled, taps begin after the span
-    framed = NS(request_id="L3", prompt_token_ids=list(range(200)), kv_transfer_params={"drift_session": "sess-3", "drift_reserve": 40, "drift_reserve_start": 10}, skip_reading_prefix_cache=False)
+    framed = live_request('L3', reserve=40, name='sess-3')
+    framed.kv_transfer_params['drift_reserve_start'] = 10
     c.on_new_request(framed)
     (tmp_path / "tp-live-in" / "sess-3").mkdir(parents=True); np.savez(tmp_path / "tp-live-in" / "sess-3" / "000000.npz", **{k: v[:2] for k, v in memory.items()})
     c.meta = c.build_connector_meta(step(new=[("L3", ([1],), 0)], scheduled={"L3": 100})); c.wait_for_save()

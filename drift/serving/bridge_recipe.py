@@ -16,6 +16,8 @@ class PinnedRecipe:
     direction: str
     reader: object
     sha256: str
+    reverse_source_policy: str = 'last_one_own_row'
+    reverse_copies: int = 12
 
 
 def load_bridge_recipe(direction, manifest, expected_sha256, *, artifact_root, scratch, max_bytes):
@@ -30,7 +32,10 @@ def load_bridge_recipe(direction, manifest, expected_sha256, *, artifact_root, s
             keys=('forward_base','forward_fanout','correction') if direction=='forward' else ('reverse_v3',)
             gain=spec['forward_gain_power' if direction=='forward' else 'reverse_gain_power']
             require(type(gain) in (int,float) and gain==(1.5 if direction=='forward' else 1.0))
-            require(direction=='forward' or type(spec['reverse_copies']) is int and spec['reverse_copies']==12)
+            policy = spec.get('reverse_source_policy','last_one_own_row')
+            copies = spec.get('reverse_copies',12)
+            require(direction=='forward' or type(copies) is int and
+                    (policy,copies) in (('last_one_own_row',12),('all_new_own_rows',1)))
             paths={};total=0
             for key in keys:
                 value=spec['artifacts'][key];require(type(value) is str)
@@ -50,6 +55,6 @@ def load_bridge_recipe(direction, manifest, expected_sha256, *, artifact_root, s
                 require(reader.sha256==spec['sha256']['reverse_v3'])
                 require(reader.input_mean.shape==(12288,) and np.isfinite(reader.input_mean).all())
                 require(all(np.isfinite(value).all() for value in reader.biases.values()))
-        return PinnedRecipe(direction,reader,expected_sha256)
+        return PinnedRecipe(direction,reader,expected_sha256,policy,copies)
     finally:
         normalized.unlink(missing_ok=True)

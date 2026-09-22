@@ -1,8 +1,11 @@
 import { exchangeRequest, validateExchanged } from './exchange_client.mjs';
+import { createStagedExchange } from './exchange_staged.mjs';
 
 const failure = () => new Error('DRIFT_WORKER_CANCELLED');
 
-export function createExchangeBoundary({ socket, route, timeoutMs, expected }) {
+export function createExchangeBoundary({ socket, route, timeoutMs, expected, delivery = 'immediate' }) {
+  if (delivery === 'next_turn_snapshot') return createStagedExchange({ socket, route, timeoutMs, expected });
+  if (delivery !== 'immediate') throw failure();
   // Production registration calls this only after the project gate has parked both workers.
   let poisoned = false;
   const records = [];

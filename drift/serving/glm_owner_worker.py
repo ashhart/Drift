@@ -7,14 +7,15 @@ import time
 from drift.serving.glm_owner_config import control_paths, create_owner
 from drift.serving.glm_owner_input import OwnerInput
 from drift.serving.glm_owner_socket import SnapshotSocket
-from drift.serving.glm_restore_factory import factory
+from drift.serving.glm_restore_factory import ROOT, factory
 from drift.serving.glm_restore_route import PinnedRoute
 from drift.serving.worker_owner_stdio import pinned_json
 from drift.serving.worker_session import WorkerSession
 from drift.serving.worker_stdio import serve
 
 
-def serve_owner(configuration, *, backend_factory=factory, route_factory=PinnedRoute, input_fd=0, sink=None):
+def serve_owner(configuration, *, backend_factory=factory, route_factory=PinnedRoute, input_fd=0, sink=None,
+                publication_factory=None, outbox_factory=None, memory_root=ROOT):
     started = time.monotonic()
     milliseconds = configuration['limits']['deadline_ms']
     if type(milliseconds) is not int or not 1000 <= milliseconds <= 180000: raise ValueError('OWNER_LIMIT')
@@ -24,8 +25,9 @@ def serve_owner(configuration, *, backend_factory=factory, route_factory=PinnedR
     backend = bank = endpoint = session = None
     result = {'status': 'FAILED', 'control_failed': False, 'owner_thread_joined': False}
     try:
-        backend, bank = create_owner(configuration, backend_factory=backend_factory, route_factory=route_factory)
-        endpoint = SnapshotSocket(socket_path, deadline, bank)
+        backend, bank = create_owner(configuration, backend_factory=backend_factory, route_factory=route_factory,
+                                     publication_factory=publication_factory, outbox_factory=outbox_factory, memory_root=memory_root)
+        endpoint = SnapshotSocket(socket_path, deadline, bank, backend.restoration)
         session = WorkerSession(configuration['worker'], configuration['pins'], configuration['limits'], backend,
                                 allow_own_control=configuration.get('experimental_multi_turn', False))
         session.session = bank.session

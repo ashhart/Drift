@@ -43,6 +43,7 @@ class Bridge:
         self.log_path = log_path
         self.forward_failed = False
         self.forward_complete = False
+        self.watched = set()
         self._pending_ack = None
 
     def _log(self, **event) -> None:
@@ -123,8 +124,14 @@ class Bridge:
             if self.watching is not None:
                 if session == self.watching and not self.forward_failed:
                     return
-                raise ValueError("an active forward stream requires a fresh bridge session")
+                if (self.forward_failed or not self.forward_complete or self.forward is None
+                        or not self.forward.acknowledged() or session in self.watched):
+                    raise ValueError("the previous forward stream must complete before changing requests")
+            if len(self.watched) >= 1024:
+                raise ValueError("forward request budget exhausted")
+            self.watched.add(session)
             self.watching = session
+            self.next_tap, self.in_flight, self.forward_complete = 0, None, False
             return
         if op == "stage":
             source = hashlib.sha256(body).hexdigest()

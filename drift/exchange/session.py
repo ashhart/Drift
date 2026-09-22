@@ -2,6 +2,7 @@
 from drift.exchange.contract import MODES, validate_exchange
 from drift.exchange import validation
 from drift.exchange.lifetime import checkpoint
+from drift.exchange.outbound import OutboundPublication
 
 MAX_SEQUENCE = 1_000_000
 DEFAULT_ROW_CAP = 2048
@@ -21,7 +22,8 @@ class ExchangeSession:
         if source_worker == target_worker:
             raise ExchangeError('EXCHANGE_ROUTE')
         self.session, self.source_worker, self.target_worker = session, source_worker, target_worker
-        self.mode, self.ranks = mode, tuple(ranks) if mode == 'drift' else ()
+        # Sorted on both sides: MailboxLink reports ranks sorted and the contract compares them with ==.
+        self.mode, self.ranks = mode, tuple(sorted(ranks)) if mode == 'drift' else ()
         try:
             for value in (session, source_worker, target_worker):
                 validation.identity(value)
@@ -37,6 +39,7 @@ class ExchangeSession:
         self.publish_row_cap, self.published_rows, self.source_stop = publish_row_cap, 0, None
         self.sequence, self.foreign_rows, self.poisoned = 0, 0, False
         self.source_start, self.tap_count, self.forward_complete = None, 0, False
+        self.outbound = OutboundPublication(self)
 
     def _poison(self, code, cause=None):
         """Poison first, then raise; an ExchangeError from a collaborator keeps its own code."""
@@ -58,13 +61,15 @@ class ExchangeSession:
         except Exception as error:
             self._poison('EXCHANGE_CANCELLED', error)
 
-    def _invoke(self, code, call, *args):
+    def _invoke(self, code, call, *args, post=True):
+        """`post=False` for a call whose side effect must be recorded before the next cancellation check."""
         self._checkpoint()
         try:
             result = call(*args)
         except Exception as error:
             self._poison(code, error)
-        self._checkpoint()
+        if post:
+            self._checkpoint()
         return result
 
     def publish_own(self, text_bytes=0):
@@ -74,7 +79,38 @@ class ExchangeSession:
             self._poison('EXCHANGE_TEXT_FALLBACK')
         try:
             validation.integer(text_bytes, 0, validation.MAX_BYTES)
-            record = self._text_record(text_bytes) if self.mode == 'text' else self._drift_record()
+        except ValueError as error:
+            self._poison(str(error))
+        if self.mode == 'drift':
+            self.deliver_own()
+            return self.confirm_own(self.sequence)
+        return self._accept(self._text_record(text_bytes))
+
+    def deliver_own(self):
+        """Deliver bytes without waiting for an inactive receiver to apply them."""
+        self._guard()
+        if self.mode != 'drift':
+            self._poison('EXCHANGE_MODE')
+        return self.outbound.deliver()
+
+    def confirm_own(self, sequence):
+        """Advance only after all pinned ranks confirm this exact pending publication."""
+        self._guard()
+        if self.mode != 'drift':
+            self._poison('EXCHANGE_MODE')
+        result = self._accept(self.outbound.confirm(sequence))
+        self.outbound.pending = None
+        return result
+
+    def stage_own(self):
+        """Queue a snapshot for the receiver's next turn without claiming transport or application."""
+        self._guard()
+        if self.mode != 'drift':
+            self._poison('EXCHANGE_MODE')
+        return self.outbound.deliver(staged=True)
+
+    def _accept(self, record):
+        try:
             validate_exchange(record, session=self.session, sequence=self.sequence, mode=self.mode,
                               source_worker=self.source_worker, target_worker=self.target_worker,
                               expected_ranks=self.ranks)
@@ -90,21 +126,6 @@ class ExchangeSession:
     def _text_record(self, text_bytes):
         return self._record(rows=0, source_rows=0, copies=0, size=0, sha256=None,
                             text_bytes=text_bytes, applied=(), receipts=())
-
-    def _drift_record(self):
-        try:
-            snapshot = self._invoke('EXCHANGE_LINK_FAILED', self.source.snapshot, self.copies)
-            rows = validation.snapshot(snapshot, self.copies)
-            if self.published_rows + rows > self.publish_row_cap:
-                self._poison('EXCHANGE_PUBLISH_CAP')
-            delivered = self._invoke('EXCHANGE_LINK_FAILED', self.link.deliver,
-                                     self.session, self.sequence, snapshot['body'], self.copies)
-            applied = self._invoke('EXCHANGE_LINK_FAILED', self.link.confirm_applied, delivered, rows)
-            return self._record(rows=rows, source_rows=snapshot['rows'], copies=self.copies,
-                                size=len(snapshot['body']), sha256=snapshot['sha256'], text_bytes=0,
-                                applied=tuple(applied['ranks']), receipts=tuple(applied['receipts']))
-        except Exception as error:
-            self._poison('EXCHANGE_LINK_FAILED', error)
 
     def _record(self, *, rows, source_rows, copies, size, sha256, text_bytes, applied, receipts):
         return dict(v=1, session=self.session, sequence=self.sequence, mode=self.mode,

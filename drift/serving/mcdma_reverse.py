@@ -4,12 +4,10 @@ rank's connector receipt (cache application) to the same live session, sequence 
 Two different confirmations, never merged: `staged` / `released` are mailbox acknowledgements ("this rank holds these bytes in
 its inbox"); `applied` needs the GLM connector's own per-rank receipt relayed by the bridge ("this rank's cache holds them")."""
 from __future__ import annotations
-import hashlib
-from contextvars import copy_context
 import json
-import threading
 import time
 from drift.serving.mcdma_mailbox import MailboxError, Writer, read_receipt
+from drift.serving.mcdma_staging import Staging
 from drift.exchange.lifetime import CheckedRegion, checkpoint
 
 
@@ -27,6 +25,7 @@ class ReversePublisher:
         self.conns = {rank: CheckedRegion(conn if split is None else Window(conn, 0, split))
                       for rank, conn in connections.items()}
         self.writers, self._partial = {rank: Writer(conn) for rank, conn in self.conns.items()}, {}
+        self.staging = Staging(self, envelope)
 
     def _deliver(self, rank: str, payload: bytes) -> None:
         checkpoint()
@@ -49,24 +48,13 @@ class ReversePublisher:
 
     def deliver(self, session: str, sequence: int, body: bytes, copies: int = 1) -> dict:
         """`copies` > 1: each rank's bridge tiles the rows locally, so only one copy crosses the wire."""
-        digest, t0, errors = hashlib.sha256(body).hexdigest(), time.perf_counter(), {}
+        return self.release(self.stage(session, sequence, body, copies))
 
-        def stage(rank):
-            try:
-                self._deliver(rank, envelope("stage", session, sequence, body, copies))
-            except Exception as error:
-                errors[rank] = error
-        threads = [threading.Thread(target=copy_context().run, args=(stage, rank)) for rank in self.conns]
-        for t in threads: t.start()
-        for t in threads: t.join()
-        if errors:
-            detail = "; ".join(f"{rank}: {type(e).__name__}: {e}" for rank, e in sorted(errors.items()))
-            raise MailboxError(f"staging failed, nothing was released ({detail})"[:280])     # the head's file stays hidden: no rank applies a partial delivery
-        checkpoint()
-        staged = time.perf_counter() - t0
-        self._deliver(self.head, envelope("release", session, sequence))
-        released = time.perf_counter() - t0
-        return {"session": session, "sequence": sequence, "bytes": len(body), "sha256": digest, "staged_all_ranks_s": round(staged, 6), "released_s": round(released, 6), "_t0": time.perf_counter()}
+    def stage(self, session: str, sequence: int, body: bytes, copies: int = 1) -> dict:
+        return self.staging.stage(session, sequence, body, copies)
+
+    def release(self, staged: dict) -> dict:
+        return self.staging.release(staged)
 
     def confirm_applied(self, delivered: dict, expected_rows: int | None = None) -> dict:
         """Block until every rank's connector receipt for this publication is bound, or fail."""

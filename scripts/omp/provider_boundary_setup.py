@@ -3,8 +3,9 @@ from pathlib import Path
 import shutil
 
 FILES = ('provider_project_boundary.mjs', 'project_boundary_control.mjs',
+         'project_boundary_terminal.mjs',
          'project_boundary_routes.mjs', 'project_boundary_files.mjs', 'paused_echo_files.mjs',
-         'worker_boundary_registration.mjs', 'provider_exchange_boundary.mjs', 'exchange_client.mjs')
+         'worker_boundary_registration.mjs', 'provider_exchange_boundary.mjs', 'exchange_client.mjs', 'exchange_staged.mjs')
 
 
 def copy_boundary_modules(target):

@@ -9,6 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 import numpy as np
+try:
+    from glm_prefill_boundary import boundary, guard_initial
+except ImportError:
+    from drift.serving.glm_prefill_boundary import boundary, guard_initial
 
 _base = importlib.import_module(os.environ.get("DRIFT_GLM53_BASE", "glm53_handoff_connector"))
 try:
@@ -31,9 +35,9 @@ except ImportError:
     from drift.serving.live_receiver_glm import LiveReceiverError, apply_live_step
 logger = getattr(_base, "logger", None) or __import__("logging").getLogger(__name__)
 try:
-    from live_tap_finish import finish_taps
+    from live_tap_finish import finish_stream, processed_frontier
 except ImportError:
-    from drift.serving.live_tap_finish import finish_taps
+    from drift.serving.live_tap_finish import finish_stream, processed_frontier
 _NAME = re.compile(r"^[A-Za-z0-9_.-]{1,96}$")
 _ATTN = re.compile(r"^language_model\.model\.layers\.(\d+)\.self_attn\.attn$")
 LATENT, PACKED = 512, 528
@@ -57,13 +61,14 @@ class LiveStep:
     reserve: int
     reserve_start: int = 0                # the reserved span is positions [reserve_start, reserve_start + reserve)
     blocks: tuple[tuple[int, ...], ...] = ()   # the request's blocks per cache group (the worker picks its MLA latent group)
-    before: int = 0                       # positions verified and in the cache when this step started
+    before: int = 0                       # scheduled cursor, which can include unfinished async work
     after: int = 0
     apply: tuple[int, ...] = ()           # sequence numbers of memory files every rank must write after this step
     tap: bool = True
     failed: str = ""
     failed_code: str = ""                 # allowlisted numeric diagnostics for scheduler-side refusals (see LiveReceiverError.fields)
     failed_details: tuple = ()
+    verified: int = 0
 
 
 @dataclass
@@ -106,6 +111,14 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
             else:
                 request.skip_reading_prefix_cache = True          # the reserved span must live in THIS request's blocks
             self._live[request.request_id] = state
+            state['request'] = request
+            try:
+                stop = boundary(params)
+                if stop is not None:
+                    if stop >= prompt_len: raise ValueError('own input must follow the prefill boundary')
+                    state['prefill_boundary'] = stop
+            except ValueError:
+                state['failed'] = 'invalid initial prefill boundary'
             logger.info("drift live %s: reserved span %d..%d of %d prompt tokens", state["name"], first, first + reserve, prompt_len)
         name = params.get("drift_inject")
         if not name:
@@ -162,12 +175,20 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
             if any((self._live_out / state["name"]).glob("error.rank*")):
                 state["failed"] = "live rank failed; a fresh session is required"
             live_blocks(state, additions, replace)
+            verified = 0
+            if not state['failed'] and state['tap']:
+                try:
+                    verified = processed_frontier(state['request'], before)
+                except ValueError:
+                    state['failed'] = 'live tap scheduler frontier is not settled'
             apply = []
+            guard_initial(state, before, before+scheduled,
+                          (self._live_in / state['name'] / '000000.npz').is_file())
             if not state["failed"] and before + scheduled >= state["start"] + state["reserve"]:   # the reserved span exists from this step on
                 while len(apply) < 4 and (self._live_in / state["name"] / f"{state['next_seq']:06d}.npz").exists():
                     apply.append(state["next_seq"]); state["next_seq"] += 1
             live.append(LiveStep(request_id, state["name"], state["reserve"], state["start"], state["blocks"], int(before), int(before + scheduled), tuple(apply), state["tap"], state["failed"],
-                                 state.get("code", ""), state.get("details", ())))
+                                 state.get("code", ""), state.get("details", ()), verified))
 
         for new in scheduler_output.scheduled_new_reqs:
             if new.req_id in self._live:
@@ -183,18 +204,7 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
         if state is not None:                                     # scheduler process, head host: tell the reader of the taps that no more will come
             try:
                 folder = self._live_out / state["name"]
-                folder.mkdir(parents=True, exist_ok=True)
-                outcome = {"failed": state["failed"], "writes_scheduled": state["next_seq"]}
-                if not outcome['failed'] and state.get('tap'):
-                    try:
-                        if any(folder.glob('error.rank*')):
-                            raise ValueError('live tap worker failed')
-                        outcome.update(finish_taps(folder, state, request))
-                    except Exception:
-                        outcome['failed'] = 'live tap terminal coverage failed'
-                temporary = folder / '.finished.tmp'
-                temporary.write_text(json.dumps(outcome))
-                os.replace(temporary, folder / 'finished')
+                finish_stream(folder, state, request)
             except OSError:
                 logger.error("drift live %s: cannot write the finished marker", state["name"])
 

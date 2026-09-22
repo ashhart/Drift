@@ -4,6 +4,7 @@ import { createProjectBoundary } from './project_boundary_control.mjs';
 import { createProjectRouteCheck } from './project_boundary_routes.mjs';
 import { digest, fresh, readPrivate, requireControl as require } from './paused_echo_files.mjs';
 import { writeBoundary } from './project_boundary_files.mjs';
+import { terminalAction } from './project_boundary_terminal.mjs';
 
 const optional = path => { try { return readPrivate(path); } catch (error) { if (error.code !== 'ENOENT') throw error; } };
 const failure = () => new Error('DRIFT_WORKER_CANCELLED');
@@ -23,22 +24,28 @@ export function createProviderProjectBoundary(path, expected, binding, { exchang
       if (failed) return;
       failed = true; gate.abort();
       try { writeBoundary(file(actor.role, 'failed'), { v: 1, status: 'FAILED', phase: 'provider_boundary', config_sha256: expected, nonce: config.nonce, ...actor }); } catch {}
-      try { if (optional(file(actor.role, 'ready'))) renameSync(file(actor.role, 'ready'), file(actor.role, 'invalidated')); } catch {}
+      try { const paths = gate.paths(); if (paths && optional(paths.ready)) renameSync(paths.ready, paths.invalidated); } catch {}
     };
     const check = () => {
       require(!failed && !optional(file(actor.role, 'failed')) && !optional(file(peer.role, 'failed')));
       route(actor, binding.ompSession, binding.cwd); gate.check(context);
     };
-    return async boundary => {
+    const run = async boundary => {
       let timer, abort;
       try {
         check(); require(!active);
         require(boundary?.identity && Object.keys(boundary.identity).length === Object.keys(identity).length && Object.entries(identity).every(([key, value]) => boundary.identity[key] === value));
         require(Array.isArray(boundary.toolNames) && boundary.toolNames.every(name => typeof name === 'string' && name.length > 0));
         require(boundary.signal instanceof AbortSignal && !boundary.signal.aborted);
-        if (!boundary.toolNames.length) return;
         active = true; abort = () => poison(); boundary.signal.addEventListener('abort', abort, { once: true });
         timer = setInterval(() => { try { require(!optional(file(peer.role, 'failed'))); } catch { poison(); } }, 10);
+        const action = terminalAction(config.v, actor.role, boundary);
+        if (action === 'continue') return;
+        if (action === 'finish') {
+          await gate.finish(context, exchange?.finish ? () => exchange.finish(boundary) : undefined);
+          check(); require(!boundary.signal.aborted);
+          return;
+        }
         const tool = boundary.toolNames.includes('task') ? 'task' : boundary.toolNames[0];
         await gate.wait(tool, context, exchange ? async () => {
           check(); require(!boundary.signal.aborted);
@@ -50,5 +57,6 @@ export function createProviderProjectBoundary(path, expected, binding, { exchang
       } catch { poison(); throw failure(); }
       finally { clearInterval(timer); if (abort) boundary.signal.removeEventListener('abort', abort); active = false; }
     };
+    return Object.assign(run, { abort: poison });
   } catch { throw new Error('DRIFT_WORKER_CAPABILITY'); }
 }

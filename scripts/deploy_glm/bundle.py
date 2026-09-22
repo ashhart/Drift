@@ -67,7 +67,7 @@ def dependencies(source):
 def source_closure(root):
     root = Path(root).resolve()
     found = {}
-    pending = [ROOT_SOURCE]
+    pending = [ROOT_SOURCE, 'drift/serving/glm_prefill_scheduler.py']
     while pending:
         relative = pending.pop()
         name = ENTRYPOINT if relative == ROOT_SOURCE else Path(relative).stem

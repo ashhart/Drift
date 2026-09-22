@@ -129,10 +129,17 @@ def test_midturn_publication_is_held_for_next_native_tool_turn(root):
             deadline=time.monotonic()+2
             while not (root/'entered').exists() and time.monotonic()<deadline:time.sleep(.01)
             assert (root/'entered').exists()
+            def applied(version, digest):
+                peer.sendall(json.dumps({'op':'applied','version':version,'sha256':digest}).encode()+b'\n')
+                return json.loads(peer.recv(4096))
+            assert applied(1,config['restoration']['snapshot_sha256'])['state']=='PENDING'
             peer.sendall(json.dumps({'op':'publish','snapshot':write_snapshot(root,2)}).encode()+b'\n')
             assert json.loads(peer.recv(4096))['version']==2
             (root/'release').touch()
             assert read(process)['op']=='tool_call';assert read(process)['op']=='terminal'
+            receipt=applied(1,config['restoration']['snapshot_sha256'])
+            assert receipt['state']=='APPLIED' and len(receipt['receipts'])==2
+            assert receipt['rows']==2 and receipt['version']==1
             send(process,4,'tool_result',{'call_id':'c1','text':'echo','is_error':False});assert read(process)['op']=='tool_result_ack'
             send(process,5,'stream',{'max_tokens':8});assert read(process)['op']=='text';assert read(process)['op']=='terminal'
             send(process,6,'close',{});assert read(process)['op']=='closed'

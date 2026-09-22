@@ -1,7 +1,7 @@
 """Bind a separately pinned recipe and immutable initial snapshot to one GLM owner bank."""
 from pathlib import Path
 import re
-from drift.serving.glm_restore_factory import factory
+from drift.serving.glm_restore_factory import ROOT, factory
 from drift.serving.glm_restore_route import PinnedRoute, canonical_file
 from drift.serving.glm_snapshot_bank import SnapshotBank, require
 from drift.serving.glm_snapshot_binding import bind_snapshot_bank
@@ -21,8 +21,10 @@ def control_paths(configuration):
     return root/control['socket_name'], root/control['evidence_name']
 
 
-def create_owner(configuration, *, backend_factory=factory, route_factory=PinnedRoute):
+def create_owner(configuration, *, backend_factory=factory, route_factory=PinnedRoute,
+                 publication_factory=None, outbox_factory=None, memory_root=ROOT):
     require(configuration['memory_mode'] == 'linked_snapshot')
+    require(outbox_factory is None or publication_factory is not None)
     spec, restoration = configuration['owner_bank'], configuration['restoration']
     keys = {'root', 'session', 'recipe_path', 'recipe_sha256', 'max_rows', 'max_bytes', 'max_versions', 'max_total_bytes', 'initial'}
     require(type(spec) is dict and set(spec) == keys)
@@ -43,8 +45,13 @@ def create_owner(configuration, *, backend_factory=factory, route_factory=Pinned
     backend = None
     try:
         bank.publish(initial)
-        backend = backend_factory(configuration)
-        route = route_factory(restoration['route_path'], restoration['route_sha256'])
+        if publication_factory is None:
+            backend = backend_factory(configuration)
+            route = route_factory(restoration['route_path'], restoration['route_sha256'])
+        else:
+            options = {'outbox_factory': outbox_factory} if outbox_factory is not None else {}
+            backend = backend_factory(configuration, publication_factory=publication_factory, memory_root=memory_root, **options)
+            route = None
         bind_snapshot_bank(backend, bank, route, translator_sha256=spec['recipe_sha256'])
         return backend, bank
     except Exception:

@@ -22,8 +22,8 @@ def run_steps(c):
     c._live['request'] = dict(name='tail-test', failed='', next_seq=0, start=0, reserve=0, tap=True)
     shared = dict(name='tail-test', request_id='request', reserve=0, reserve_start=0,
                   blocks=((0,), (0, 1)), apply=(), tap=True, failed='')
-    c._live_step(NS(**shared, before=8, after=9))
-    c._live_step(NS(**shared, before=11, after=12))
+    c._live_step(NS(**shared, before=8, after=9, verified=8))
+    c._live_step(NS(**shared, before=11, after=12, verified=11))
 
 
 def test_terminal_covers_last_computed_rows(connector):
@@ -74,7 +74,7 @@ def test_finalizer_never_rereads_freed_or_reused_device_pages(connector):
     assert (folder / '000001.npz').exists()
 
 
-@pytest.mark.parametrize('changes', [dict(num_in_flight_tokens=1), dict(num_stale_output_tokens=1),
+@pytest.mark.parametrize('changes', [dict(num_in_flight_tokens=2), dict(num_stale_output_tokens=1),
                                    dict(num_computed_tokens=None), dict(num_computed_tokens=True),
                                    dict(num_computed_tokens=13), dict(num_computed_tokens=10),
                                    dict(status=NS(name='FINISHED_ABORTED')),
@@ -135,7 +135,7 @@ def test_short_first_step_flushes_only_own_span_at_finish(connector):
     c, root = connector
     c._live['request'] = dict(name='short-test', failed='', next_seq=0, start=2, reserve=3, tap=True)
     c._live_step(NS(name='short-test', request_id='request', reserve=3, reserve_start=2,
-                    blocks=((0,), (0, 1)), apply=(), tap=True, before=0, after=7))
+                    blocks=((0,), (0, 1)), apply=(), tap=True, before=0, after=7, verified=0))
     c.request_finished(finished_request(7, status=NS(name='FINISHED_LENGTH_CAPPED')), ())
     folder = root / 'tp-live-out' / 'short-test'
     with np.load(folder / '000000.npz') as tail:

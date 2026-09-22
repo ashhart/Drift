@@ -1,5 +1,6 @@
 """Validate and apply forward taps before acknowledging their mailbox slot."""
 import io
+import hashlib
 import json
 import math
 from dataclasses import dataclass
@@ -73,7 +74,7 @@ def decode(payload, session, expected, layers, previous_stop):
             value = arrays[f"l{layer}"].astype(np.float32)
         require(value.shape == (stop - start, 512) and np.isfinite(value).all(), "invalid or nonfinite forward latents")
         latents[layer] = value
-    return Tap(meta, latents, start, stop)
+    return Tap(meta, latents, start, stop, hashlib.sha256(body).hexdigest())
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,7 @@ class Tap:
     latents: dict
     start: int
     stop: int
+    sha256: str | None = None
 
 
 @dataclass(frozen=True)

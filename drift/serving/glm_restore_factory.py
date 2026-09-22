@@ -12,9 +12,16 @@ from drift.serving.worker_artifacts import digest
 ROOT = Path('/dev/shm/glm53-handoff')
 
 
-def factory(configuration):
+def factory(configuration, *, publication_factory=None, outbox_factory=None, memory_root=ROOT):
     mode = configuration.get('memory_mode')
     if mode not in ('linked_snapshot', 'no_link_reserved'): raise ValueError('explicit restoration mode required')
+    transport = configuration.get('restoration_transport', 'ssh')
+    if transport not in ('ssh', 'mcdma') or (transport == 'mcdma') != (publication_factory is not None):
+        raise ValueError('restoration transport must match the runtime-owned factory')
+    if outbox_factory is not None and (publication_factory is None or 'outbox' not in configuration):
+        raise ValueError('forward factory requires explicit MCDMA outbox configuration')
+    if publication_factory is not None and (mode != 'linked_snapshot' or ('outbox' in configuration and outbox_factory is None)):
+        raise ValueError('MCDMA restoration requires its own forward mailbox owner')
     recipe = configuration['restoration']
     source = canonical_file(recipe['snapshot_path'], 1048576)
     expected, rows, layers = recipe['snapshot_sha256'], recipe['rows'], recipe['layers']
@@ -35,18 +42,27 @@ def factory(configuration):
         spec = configuration['outbox']
         if mode != 'linked_snapshot' or (spec['source_worker'], spec['target_worker']) != (owners[1], owners[0]):
             raise ValueError('outbound ownership or mode differs')
-        outbox = TurnOutbox(spec, {f'l{layer}': (512,) for layer in layers}, ROOT / 'tp-live-out',
-                            max_turns=configuration['limits']['max_turns'])
-    route = PinnedRoute(recipe['route_path'], recipe['route_sha256']) if mode == 'linked_snapshot' else None
+        layouts = {f'l{layer}': (512,) for layer in layers}
+        if outbox_factory is not None:
+            outbox = outbox_factory(spec, layouts, max_turns=configuration['limits']['max_turns'])
+            if outbox is None or not all(callable(getattr(outbox, name, None)) for name in ('begin', 'finish', 'close')):
+                raise ValueError('runtime forward collector is incomplete')
+        else:
+            outbox = TurnOutbox(spec, layouts, ROOT / 'tp-live-out', max_turns=configuration['limits']['max_turns'])
+    route = PinnedRoute(recipe['route_path'], recipe['route_sha256']) if mode == 'linked_snapshot' and publication_factory is None else None
     session = unlinked_factory({**configuration, 'memory_mode': 'no_link'})
     verifier = PrefixVerifier(configuration.get('base_url', 'http://127.0.0.1:8888'))
     def deadline():
         return session.started + session.limits['deadline_ms'] / 1000
     def publication(name):
         canonical_file(str(source), 1048576)
+        if publication_factory is not None:
+            return publication_factory(source, expected, name, restorer.remaining)
         return route.bind(PublicationTransport(source, expected, name, route.spec['peer'], restorer.remaining))
-    restorer = TurnRestorer(verifier, publication, rows=rows, digest=expected, root=ROOT, deadline=deadline,
-                            max_input_bytes=1048576, linked=mode == 'linked_snapshot', outbox=outbox)
+    restorer = TurnRestorer(verifier, publication, rows=rows, digest=expected, root=memory_root, deadline=deadline,
+                            max_input_bytes=1048576, linked=mode == 'linked_snapshot', outbox=outbox,
+                            causal_prefill=recipe.get('causal_prefill', False))
+    restorer.publication_factory = publication_factory
     def prepare(body):
         restorer.max_input_bytes = session.limits['max_input_bytes']
         return restorer.prepare(body)

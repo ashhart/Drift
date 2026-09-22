@@ -21,7 +21,7 @@ function exchangeFor(settings, binding) {
   const { exchangePath: path, exchangeHash: expected } = settings;
   const raw = readPrivate(path); require(digest(raw) === expected);
   const config = JSON.parse(raw);
-  require(exact(config, ['v', 'socket', 'timeout_ms', 'workers']) && config.v === 1);
+  require(exact(config, ['v', 'socket', 'timeout_ms', 'workers']) && [1, 2].includes(config.v));
   require(typeof config.socket === 'string' && isAbsolute(config.socket));
   privateRoot(dirname(config.socket));
   const info = lstatSync(config.socket);
@@ -29,7 +29,8 @@ function exchangeFor(settings, binding) {
   require(Number.isSafeInteger(config.timeout_ms) && config.timeout_ms > 0 && config.timeout_ms <= 30000);
   require(Array.isArray(config.workers) && config.workers.length === 2);
   for (const item of config.workers) {
-    require(exact(item, ['worker', 'session', 'model_id', 'route', 'exchange_session', 'source_worker', 'target_worker', 'ranks']));
+    require(exact(item, ['worker', 'session', 'model_id', 'route', 'exchange_session', 'source_worker', 'target_worker', 'ranks', ...(config.v === 2 ? ['delivery'] : [])]));
+    if (config.v === 2) require(item.delivery === 'next_turn_snapshot');
     require(Object.entries(item).every(([key, value]) => key === 'ranks' || token(value)));
     require(item.source_worker !== item.target_worker);
     require(Array.isArray(item.ranks) && item.ranks.length > 0 && item.ranks.length <= 16 && item.ranks.every(token));
@@ -38,13 +39,15 @@ function exchangeFor(settings, binding) {
   for (const field of ['worker', 'route']) require(new Set(config.workers.map(item => item[field])).size === 2);
   const entry = config.workers.find(item => ['worker', 'session', 'model_id'].every(key => item[key] === binding.identity[key]));
   require(entry);
-  const exchange = createExchangeBoundary({ socket: config.socket, route: entry.route, timeoutMs: config.timeout_ms, expected: entry });
-  return async boundary => {
+  const exchange = createExchangeBoundary({ socket: config.socket, route: entry.route, timeoutMs: config.timeout_ms, expected: entry, delivery: entry.delivery });
+  const check = () => {
     require(digest(readPrivate(path)) === expected);
     const current = lstatSync(config.socket);
     require(current.ino === info.ino && current.dev === info.dev && current.isSocket() && (current.mode & 0o777) === 0o600);
-    return exchange(boundary);
   };
+  const run = async boundary => { check(); return exchange(boundary); };
+  if (exchange.finish) run.finish = async boundary => { check(); return exchange.finish(boundary); };
+  return run;
 }
 
 export function createWorkerBoundary(settings, binding) {

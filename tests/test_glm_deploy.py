@@ -35,9 +35,9 @@ def test_complete_live_bundle_and_local_preparation(tmp_path):
     prepared = prepare(ROOT, manifest, tmp_path / "candidate")
     assert prepared["promotion_performed"] is False
     assert sorted(p.name for p in (tmp_path / "candidate").glob("*.py")) == [
-        "drift_glm53_connector.py", "glm53_handoff.py", "glm_allocation_lifecycle.py", "glm_cache_commit.py", "glm_rank_failure.py",
+        "drift_glm53_connector.py", "glm53_handoff.py", "glm_allocation_lifecycle.py", "glm_cache_commit.py", "glm_prefill_boundary.py", "glm_prefill_scheduler.py", "glm_rank_failure.py",
         "glm_worker_save.py", "live_publication.py", "live_rank_receipt.py", "live_receiver_glm.py",
-        "live_tap_capture.py", "live_tap_finish.py",
+        "live_tap_capture.py", "live_tap_finish.py", "live_tap_lock.py",
     ]
     assert (tmp_path / "candidate/manifest.json").exists()
     assert (tmp_path / "candidate/rollback-inventory.json").exists()

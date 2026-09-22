@@ -37,13 +37,17 @@ def prefix_source(path, digest, *, session, source_worker, target_worker, recipe
     actors(session,source_worker,target_worker);integer(publication_seq,1023,0)
     path=Path(path);private_root(path.parent);require(path.name=='manifest.json')
     with frozen(path,pin(digest),scratch,1048576) as fixed: report=json.loads(fixed.read_bytes())
-    expected=dict(session=session,source_worker=source_worker,target_worker=target_worker,recipe_sha256=recipe_sha256,evidence='EXPORTED_PREFIX',full_completion=False,final_tail='UNKNOWN',scope='newly_generated_only',new_own_inputs='NOT_EXPORTED',translation='NOT_PERFORMED',native_finished_marker=True)
+    expected=dict(session=session,source_worker=source_worker,target_worker=target_worker,recipe_sha256=recipe_sha256,evidence='EXPORTED_PREFIX',full_completion=False,final_tail='UNKNOWN',scope='newly_generated_only',new_own_inputs='NOT_EXPORTED',translation='NOT_PERFORMED')
+    mcdma=type(report) is dict and report.get('transport')=='mcdma'
+    expected.update(dict(transport='mcdma',cache_applied=False,forward_complete=True) if mcdma else dict(native_finished_marker=True))
     verified=type(report) is dict and report.get('final_tail')==VERIFIED
+    require(not mcdma or not verified)
     if verified: expected['final_tail']=VERIFIED
-    require(type(report) is dict and set(report)==set(expected)|{'prompt_tokens','verified_stop','selected_rows','selected_bytes','raw_bytes','writes_scheduled','raw_publications','publications'}|({'native_terminal'} if verified else set()))
+    require(type(report) is dict and set(report)==set(expected)|{'prompt_tokens','verified_stop','selected_rows','selected_bytes','raw_bytes','raw_publications','publications'}|({'native_terminal'} if verified or mcdma else set())|({'writes_scheduled'} if not mcdma else set()))
     require(all(type(report[key]) is type(value) and report[key]==value for key,value in expected.items()))
     prompt=integer(report['prompt_tokens'],65536);stop=integer(report['verified_stop'],65536)
-    integer(report['raw_bytes'],128*1048576);integer(report['writes_scheduled'],1000000,0)
+    integer(report['raw_bytes'],128*1048576)
+    if not mcdma: integer(report['writes_scheduled'],1000000,0)
     require(type(report['raw_publications']) is list and len(report['raw_publications'])<=1024)
     items=report['publications'];require(type(items) is list and 0<len(items)<=1024 and publication_seq<len(items))
     total_rows=total_bytes=0;cursor=prompt;native_seq=-1
@@ -57,7 +61,7 @@ def prefix_source(path, digest, *, session, source_worker, target_worker, recipe
         cursor+=rows;total_rows+=rows;total_bytes+=size
     require(type(report['selected_rows']) is int and report['selected_rows']==total_rows<=4096)
     require(type(report['selected_bytes']) is int and report['selected_bytes']==total_bytes<=128*1048576 and cursor==stop)
-    if verified:
+    if verified or mcdma:
         terminal=report['native_terminal']
         require(type(terminal) is dict and type(terminal.get('source_start')) is int and 0<=terminal['source_start']<=prompt)
         verify_terminal(terminal,report['raw_publications'],terminal['source_start'],stop,report['raw_bytes'],items)
@@ -65,5 +69,6 @@ def prefix_source(path, digest, *, session, source_worker, target_worker, recipe
     arrays=read_arrays(source,item['sha256'],GLM_LAYOUT,scratch,item['rows'],max_bytes,max_rows)
     require(source.stat().st_size==item['bytes'])
     evidence=dict(final_tail=report['final_tail'])
-    if verified: evidence['native_terminal']=terminal
+    if verified or mcdma: evidence['native_terminal']=terminal
+    if mcdma: evidence.update(transport='mcdma',cache_applied=False,forward_complete=True)
     return arrays,dict(source_session=session,source_seq=publication_seq,source_native_seq=item['source_seq'],source_sha256=item['sha256'],source_manifest_sha256=digest,source_start=item['source_start'],source_stop=item['source_stop'],source_rows=item['rows'],scope='newly_generated_only',new_own_inputs='NOT_EXPORTED',**evidence)

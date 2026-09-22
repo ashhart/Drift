@@ -1,5 +1,7 @@
 """Finalize only accepted cached rows from a private worker-side tail snapshot."""
 import re
+import json
+import os
 from zipfile import ZipFile
 
 import numpy as np
@@ -7,19 +9,44 @@ import numpy as np
 try:
     from live_publication import load_publication, wire_arrays
     from live_tap_capture import save_arrays
+    from live_tap_lock import tap_lock
 except ImportError:
     from drift.serving.live_publication import load_publication, wire_arrays
     from drift.serving.live_tap_capture import save_arrays
+    from drift.serving.live_tap_lock import tap_lock
+
+
+def finish_stream(folder, state, request):
+    with tap_lock(folder):
+        outcome = {'failed': state['failed'], 'writes_scheduled': state['next_seq']}
+        if not outcome['failed'] and state.get('tap'):
+            try:
+                if any(folder.glob('error.rank*')):
+                    raise ValueError('live tap worker failed')
+                outcome.update(finish_taps(folder, state, request))
+            except Exception:
+                outcome['failed'] = 'live tap terminal coverage failed'
+        temporary = folder / '.finished.tmp'
+        temporary.write_text(json.dumps(outcome))
+        os.replace(temporary, folder / 'finished')
+
+
+def processed_frontier(request, computed):
+    inflight = getattr(request, 'num_in_flight_tokens', None)
+    stale = getattr(request, 'num_stale_output_tokens', None)
+    if any(type(value) is not int or value < 0 for value in (computed, inflight, stale)) or stale or inflight > computed:
+        raise ValueError('live tap processed frontier is not settled')
+    return computed - inflight
 
 
 def final_frontier(request):
     if getattr(getattr(request, 'status', None), 'name', None) not in ('FINISHED_STOPPED', 'FINISHED_LENGTH_CAPPED'):
         raise ValueError('live tap request did not finish successfully')
-    names = ('num_computed_tokens', 'num_tokens', 'num_in_flight_tokens', 'num_stale_output_tokens')
-    values = [getattr(request, name, None) for name in names]
-    if any(type(value) is not int or value < 0 for value in values) or values[2] or values[3]:
+    computed = processed_frontier(request, getattr(request, 'num_computed_tokens', None))
+    tokens = getattr(request, 'num_tokens', None)
+    if type(tokens) is not int or tokens < 0:
         raise ValueError('live tap terminal frontier is not settled')
-    return min(values[:2])
+    return min(computed, tokens)
 
 
 def finish_taps(folder, state, request):

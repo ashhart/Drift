@@ -50,7 +50,8 @@ def connector(tmp_path, monkeypatch):
 
 def live(rid, *, start, reserve, prompt=400, name="s", no_store=True, **extra):
     params = {"drift_session": name, "drift_reserve": reserve, "drift_reserve_start": start, **extra}
-    return NS(request_id=rid, prompt_token_ids=list(range(prompt)), kv_transfer_params=params, skip_reading_prefix_cache=False, skip_writing_prefix_cache=no_store)
+    return NS(request_id=rid, prompt_token_ids=list(range(prompt)), kv_transfer_params=params, skip_reading_prefix_cache=False, skip_writing_prefix_cache=no_store,
+              num_in_flight_tokens=0, num_stale_output_tokens=0)
 
 
 def step(new=(), cached=(), scheduled=None, resumed=()):

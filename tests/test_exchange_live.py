@@ -111,9 +111,11 @@ def test_prepare_measures_without_touching_the_cache(monkeypatch):
     assert sink.commit(prepared) == 2 and len(appended) == 1
 
 
-def test_a_completion_marker_carries_no_rows_and_appends_nothing(monkeypatch):
+def test_a_completion_marker_measures_nothing_and_cannot_be_committed(monkeypatch):
     import drift.exchange.live as live
     monkeypatch.setattr(live, 'append_entries', lambda *a, **k: pytest.fail('completion must not append'))
     sink = ForeignRowSink(cache_for(0), None, (0,), ForeignReader(), Bank(), 4, lambda: 0)
     rows, prepared = sink.prepare(Complete(tap_count=1, source_start=0, source_stop=2))
-    assert rows == 0 and prepared is None and sink.commit(prepared) == 0
+    assert rows == 0 and prepared is None
+    with pytest.raises(LiveExchangeError):
+        sink.commit(prepared)

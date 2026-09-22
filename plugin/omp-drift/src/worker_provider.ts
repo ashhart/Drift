@@ -36,7 +36,7 @@ export function workerProvider<T extends EventSink>(client: WorkerClient, create
         const terminal = await generation;
         if (cancellation) { await cancellation; throw new Error("DRIFT_WORKER_CANCELLED"); }
         if (lifecycle.beforeToolDispatch) {
-          await beforeWorkerDispatch(client, lifecycle.beforeToolDispatch, tail!.toolNames, options?.signal);
+          await beforeWorkerDispatch(client, lifecycle.beforeToolDispatch, tail!.toolNames, options?.signal, tail!.toolCalls);
           if (options?.signal?.aborted) throw new Error("DRIFT_WORKER_CANCELLED");
           if (client.lifecycleSignal.aborted) throw client.lifecycleSignal.reason;
           if (client.remainingLifetimeMs <= 0) throw new Error("DRIFT_WORKER_TIMEOUT");
@@ -47,6 +47,7 @@ export function workerProvider<T extends EventSink>(client: WorkerClient, create
         mapping.done(terminal);
       } catch (error) {
         poisoned = true;
+        try { lifecycle.beforeToolDispatch?.abort?.(); } catch {}
         const code = error instanceof Error && error.message.startsWith("DRIFT_WORKER_") ? error.message.slice(13) : "UNKNOWN";
         let acknowledged = false;
         if (cancellation) { try { await cancellation; acknowledged = true; } catch {} }

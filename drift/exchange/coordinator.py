@@ -12,7 +12,9 @@ from drift.exchange.lifetime import request_scope
 FRAME_LIMIT = 4096
 MAX_REQUESTS = 1024
 PATH_LIMIT = 104                            # the shortest sun_path any supported platform accepts
-OPS = {'exchange': {'op', 'route'}, 'status': {'op', 'route'}}
+OPS = {'exchange': {'op', 'route'}, 'status': {'op', 'route'},
+       'stage': {'op', 'route'},
+       'deliver': {'op', 'route'}, 'confirm': {'op', 'route', 'sequence'}}
 
 
 def _object(pairs):
@@ -43,6 +45,12 @@ def dispatch(sessions, frame, *, check=None):
         return dict(op='status', route=route, mode=session.mode, sequence=session.sequence,
                     foreign_rows=session.foreign_rows, poisoned=session.poisoned)
     with request_scope(check):
+        if op == 'stage':
+            return dict(op='staged', route=route, delivery=_jsonable(session.stage_own()))
+        if op == 'deliver':
+            return dict(op='delivered', route=route, delivery=_jsonable(session.deliver_own()))
+        if op == 'confirm':
+            return dict(op='confirmed', route=route, published=_jsonable(session.confirm_own(frame['sequence'])))
         record = session.publish_own()
         applied = session.drain_forward()
     return dict(op='exchanged', route=route, published=_jsonable(record),
@@ -118,6 +126,7 @@ class ExchangeCoordinator:
             if not self.stopped.is_set():
                 self.failed.set()
         finally:
+            self._poison_routes()
             self.listener.close()
             if self.peer is not None:
                 self.peer.close()
@@ -149,7 +158,12 @@ class ExchangeCoordinator:
             self.requests += 1
             self.peer.sendall(json.dumps(reply, allow_nan=False).encode() + b'\n')
 
+    def _poison_routes(self):
+        for session in self.sessions.values():
+            session.poisoned = True
+
     def close(self):
+        self._poison_routes()
         self.stopped.set()
         self.listener.close()
         peer = self.peer

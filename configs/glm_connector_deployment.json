@@ -1,12 +1,12 @@
 {
   "version": 1,
   "entrypoint": "drift_glm53_connector",
-  "source_commit": "0ea4522c4535e00a8a3e12dc674982ba79b003cc",
+  "source_commit": "cca9f6d1fb8b2653999c34f42aa4c38bf85afb5d",
   "files": [
     {
       "module": "drift_glm53_connector",
       "source": "drift/serving/vllm_glm53_inject.py",
-      "sha256": "c81a26f2083fbedbff6db45a000ce96a0664a9fba7aeabdd0a537736baff1bd3"
+      "sha256": "3da5e508fc42d5bb0c4751973f0273f87b13120d854befc24b880453765fcf98"
     },
     {
       "module": "glm53_handoff",
@@ -22,6 +22,16 @@
       "module": "glm_cache_commit",
       "source": "drift/serving/glm_cache_commit.py",
       "sha256": "0501a56bc1218dbd8459fad80aa92cc3b2c54b81d9441b7d390fbf5e3378c132"
+    },
+    {
+      "module": "glm_prefill_boundary",
+      "source": "drift/serving/glm_prefill_boundary.py",
+      "sha256": "d86047aae97bf32131d36c3635ca43089c321b2195fb2a9337fcc3e7516b7c25"
+    },
+    {
+      "module": "glm_prefill_scheduler",
+      "source": "drift/serving/glm_prefill_scheduler.py",
+      "sha256": "a361f308bf85faf921b0ad4376a22fd868a52e2c02d39695e277113681e7a1bf"
     },
     {
       "module": "glm_rank_failure",
@@ -51,12 +61,17 @@
     {
       "module": "live_tap_capture",
       "source": "drift/serving/live_tap_capture.py",
-      "sha256": "52810c33f8c82191aef7f321bb76beb5c63fb938390c8e16172a9f2eade42a06"
+      "sha256": "a3d27dca2e931bc57111923198eeda79f06cb70778b6b54a8ee59ab85715782e"
     },
     {
       "module": "live_tap_finish",
       "source": "drift/serving/live_tap_finish.py",
-      "sha256": "6392d93f07d327a5b77e54c0ecc4e28054cdcc5603c27f525462ed90f716c23c"
+      "sha256": "0f6998e25a15ae7de73154a00fdf579680803fe782bbafbbb06dad4491e799e7"
+    },
+    {
+      "module": "live_tap_lock",
+      "source": "drift/serving/live_tap_lock.py",
+      "sha256": "b83e5520d53f39d3f8460d1f21fcc7e7f12ac79acd826c455c91554b61bf88e7"
     }
   ],
   "targets": [

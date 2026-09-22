@@ -55,3 +55,88 @@ def test_outbox_is_explicit_and_cannot_be_enabled_on_reserved_no_link(tmp_path,m
     module,config,_=setup(tmp_path,monkeypatch)
     config['outbox']={'source_worker':'glm','target_worker':'qwen'}
     with pytest.raises(ValueError):module.factory(config)
+
+
+def test_mcdma_factory_never_constructs_ssh_route_or_payload_transport(tmp_path, monkeypatch):
+    module, config, session = setup(tmp_path, monkeypatch, mode='linked_snapshot')
+    config['restoration_transport'] = 'mcdma'
+    def forbidden(*args, **kwargs):
+        pytest.fail('SSH payload path must not be constructed')
+    monkeypatch.setattr(module, 'PinnedRoute', forbidden)
+    monkeypatch.setattr(module, 'PublicationTransport', forbidden)
+    calls = []
+    def publication(*args):
+        calls.append(args)
+        return 'runtime-owned transport'
+    result = module.factory(config, publication_factory=publication, memory_root=tmp_path)
+    assert result.restoration.root == tmp_path
+    assert result.restoration.publication_factory is publication
+    assert result.restoration.publication('fresh-request') == 'runtime-owned transport'
+    assert calls[0][1:3] == (config['restoration']['snapshot_sha256'], 'fresh-request')
+
+
+@pytest.mark.parametrize('declared, supplied', [('mcdma', False), ('ssh', True), ('unknown', False)])
+def test_transport_declaration_cannot_select_a_fallback(tmp_path, monkeypatch, declared, supplied):
+    module, config, _ = setup(tmp_path, monkeypatch, mode='linked_snapshot')
+    config['restoration_transport'] = declared
+    with pytest.raises(ValueError, match='transport must match'):
+        module.factory(config, publication_factory=(lambda *args: None) if supplied else None)
+
+
+def test_owner_bank_keeps_runtime_mcdma_factory_without_ssh_binding(tmp_path, monkeypatch):
+    from test_glm_owner_worker import configuration
+    from drift.serving.glm_owner_config import create_owner
+    import drift.serving.glm_restore_factory as module
+
+    root = tmp_path.resolve()
+    root.chmod(0o700)
+    config = configuration(root)
+    config['restoration_transport'] = 'mcdma'
+    session = SimpleNamespace(transport=SimpleNamespace(), started=None, poisoned=False,
+                              limits=config['limits'])
+    monkeypatch.setattr(module, 'unlinked_factory', lambda _: session)
+    def forbidden(*args, **kwargs):
+        pytest.fail('native owner must not construct an SSH route')
+    monkeypatch.setattr(module, 'PinnedRoute', forbidden)
+    publication = lambda *args: None
+    backend, bank = create_owner(config, publication_factory=publication, memory_root=root, route_factory=forbidden)
+    assert backend.snapshot_bank is bank
+    assert backend.restoration.route is None
+    assert backend.restoration.publication_factory is publication
+
+
+def test_runtime_forward_factory_is_carried_into_owner_bank(tmp_path, monkeypatch):
+    from test_glm_owner_worker import configuration
+    from drift.serving.glm_owner_config import create_owner
+    import drift.serving.glm_restore_factory as module
+    root = tmp_path.resolve()
+    root.chmod(0o700)
+    config = configuration(root)
+    config['restoration_transport'] = 'mcdma'
+    config['outbox'] = {'source_worker': 'glm', 'target_worker': 'qwen'}
+    session = SimpleNamespace(transport=SimpleNamespace(), started=None, poisoned=False, limits=config['limits'])
+    monkeypatch.setattr(module, 'unlinked_factory', lambda _: session)
+    calls, collector = [], SimpleNamespace(begin=lambda *args: None, finish=lambda *args: None, close=lambda: None)
+    def forward(spec, layouts, *, max_turns):
+        calls.append((spec, layouts, max_turns))
+        return collector
+    backend, bank = create_owner(config, publication_factory=lambda *args: None,
+                                 outbox_factory=forward, memory_root=root)
+    assert backend.restoration.outbox is collector and backend.snapshot_bank is bank
+    assert calls == [(config['outbox'], {'l3': (512,)}, 2)]
+
+
+@pytest.mark.parametrize('mode', ['ssh', 'missing_spec', 'missing_factory', 'wrong_owner'])
+def test_forward_factory_cannot_bypass_transport_or_ownership(tmp_path, monkeypatch, mode):
+    module, config, _ = setup(tmp_path, monkeypatch, mode='linked_snapshot')
+    config['restoration_transport'] = 'mcdma'
+    config['outbox'] = {'source_worker': 'glm', 'target_worker': 'qwen'}
+    config['limits'] = {'max_turns': 2}
+    kwargs = dict(publication_factory=lambda *args: None, outbox_factory=lambda *args, **kw: object())
+    if mode == 'ssh':
+        config['restoration_transport'] = 'ssh'
+        kwargs['publication_factory'] = None
+    elif mode == 'missing_spec': del config['outbox']
+    elif mode == 'missing_factory': kwargs['outbox_factory'] = None
+    else: config['outbox']['target_worker'] = 'other'
+    with pytest.raises(ValueError): module.factory(config, **kwargs)

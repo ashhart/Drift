@@ -6,19 +6,20 @@ from test_glm_snapshot_bank import make_bank, update
 from drift.serving.glm_restore_turn import TurnRestorer, RestoringTransport
 
 
-def bound_session(tmp_path, monkeypatch):
+def bound_session(tmp_path, monkeypatch, *, causal_prefill=False):
     from drift.serving.glm_snapshot_binding import bind_snapshot_bank
     import drift.serving.glm_snapshot_binding as module
     bank, root = make_bank(tmp_path); first = update(root, 1); bank.publish(first)
     events, copies = [], []
     transport_root = tmp_path / 'transport'; transport_root.mkdir()
     fixed = TurnRestorer(Prefix(), None, rows=2, digest=first['sha256'], root=transport_root,
-                         deadline=lambda: 9999999999, max_input_bytes=4096)
+                         deadline=lambda: 9999999999, max_input_bytes=4096, causal_prefill=causal_prefill)
     inner = Http(events)
     session = SimpleNamespace(started=None, poisoned=False, restoration=fixed, transport=RestoringTransport(inner, fixed),
                               restoration_ownership={'source_worker':'qwen', 'target_worker':'glm'}, limits={'max_input_bytes':4096})
     def count(value, timeout):
-        inner.bodies.append(value); return 10 + session.restoration.rows
+        inner.bodies.append(value)
+        return 10 + session.restoration.rows + session.restoration.plan['proof'].get('padding_tokens', 0)
     inner.count_tokens = count
     class Route:
         spec = {'peer': 'fixture'}
@@ -29,6 +30,22 @@ def bound_session(tmp_path, monkeypatch):
     monkeypatch.setattr(module, 'PublicationTransport', publication)
     bind_snapshot_bank(session, bank, Route(), translator_sha256='a'*64)
     return session, bank, root, copies
+
+
+def test_bank_preserves_prefill_guard_across_snapshot_versions(tmp_path, monkeypatch):
+    session, bank, root, _ = bound_session(tmp_path, monkeypatch, causal_prefill=True)
+    assert session.restoration.causal_prefill
+    for version, rows in ((1, 2), (2, 3)):
+        if version == 2: bank.publish(update(root, version, rows=rows))
+        request = {**body(), **session.prepare_turn(body())}
+        assert request['kv_transfer_params']['drift_prefill_boundary'] == 128
+        assert request['kv_transfer_params']['drift_reserve'] == rows
+        session.transport.count_tokens(request, 5)
+        list(session.transport.stream(request, 5))
+    turns = session.restoration.report()['turns']
+    assert [turn['snapshot']['version'] for turn in turns] == [1, 2]
+    assert all(turn['prefill_policy'] == 'GUARDED_REQUESTED' for turn in turns)
+    assert all(turn['first_token_causality'] == 'NOT_ESTABLISHED' for turn in turns)
 
 
 def test_pending_update_cannot_change_prepared_request_or_receipts(tmp_path, monkeypatch):

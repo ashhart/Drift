@@ -10,7 +10,7 @@ Drift connects frozen language models through their key-value caches. Model-spec
 
 The goal is a choice in your workflow: ordinary text communication, or a Drift memory link over MCDMA. Duo is the first agent integration; the exchange components and tap CLI live here so other workflows can use the same machinery.
 
-> Experimental. You can use the CLI, extend adapters and run the local reference today. The repository also contains exploratory two-way MCDMA code, but reliable native two-way recall and the complete Duo/subagent workflow are not yet qualified.
+> Experimental. GLM and Qwen have completed three two-way MCDMA exchanges through a controlled OMP parent/subagent workflow, including a separate linked-cancellation check with both workers reaped. This is a bounded engineering qualification, not a general recall guarantee or a turnkey Duo integration. You can use the CLI, extend adapters and run the local reference today.
 
 [CLI guide](docs/TAP_CLI.md) · [Adapter contract](docs/ADAPTERS.md) · [Exchange API](docs/EXCHANGE_MODULES.md) · [Current progress](docs/agent-progress.md)
 
@@ -19,6 +19,8 @@ The goal is a choice in your workflow: ordinary text communication, or a Drift m
 The designated activation channel carries KV tensors and bounded protocol metadata. It does not carry task text or token IDs. Each direction needs a compatible tap, translator and receiver; matching tensor shapes alone is not enough.
 
 MCDMA moves the memory. Drift handles its representation, ownership, sequence and application. The agent runtime still owns tools, local generation and lifecycle.
+
+See the [MCDMA repository](https://github.com/ashhart/MCDMA) and its [setup guide](https://github.com/ashhart/MCDMA/blob/main/docs/user-guide.md) for the transport. Installing MCDMA alone does not enable Drift's native workflow; the local CLI reference below needs no RDMA hardware.
 
 This is a channel-specific claim. Setup prompts, locally generated tokens and shared repository files still exist, and any text fallback must be declared. A transport acknowledgement is not proof that a model used the memory correctly.
 
@@ -103,7 +105,7 @@ omp plugin link "$PWD/plugin/omp-drift"
 
 That adds the command without modifying Duo's source. Configure the local service and authentication described in the [plugin guide](plugin/omp-drift/README.md) before using `/drift start --reference`.
 
-The command currently controls the reference service. It does **not** turn an existing Duo room into a native KV-linked pair. The worker-provider exchange hook is wired locally, but the native runtime-owned coordinator bootstrap and complete two-actor qualification remain open. A text/Drift mode selector must wait for those checks; there is no supported live-mode shortcut.
+The command currently controls the reference service. It does **not** turn an existing Duo room into a native KV-linked pair. The persistent native coordinator and provider hook have passed a bounded, three-epoch parent/subagent check with GLM and Qwen, plus cancellation after a confirmed exchange. They still require operator-owned worker startup and pinned private profiles; automatic Duo room startup and a text/Drift mode selector are not supported. See [native exchange setup and evidence](docs/NATIVE_OWNER_EXCHANGE.md).
 
 ## Add Drift to another workflow
 
