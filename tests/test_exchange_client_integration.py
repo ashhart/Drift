@@ -1,5 +1,6 @@
 """Exercise the shipped JS client against the Python coordinator over local sockets."""
 import shutil
+import select
 import socket
 import subprocess
 import tempfile
@@ -7,11 +8,14 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 from drift.exchange.coordinator import ExchangeCoordinator
 from tests.test_exchange_coordinator import make_session, talk
 
 
-def test_js_client_reconnects_without_resetting_the_route():
+@pytest.mark.parametrize('startup_delay_ms', [0, 4500])
+def test_js_client_reconnects_without_resetting_the_route(startup_delay_ms):
     script = """
 import assert from 'node:assert/strict';
 import { exchangeRequest } from './scripts/omp/exchange_client.mjs';
@@ -22,15 +26,34 @@ for (let sequence = 0; sequence < 3; sequence++) {
 """
     with tempfile.TemporaryDirectory(prefix='dx-', dir='/tmp') as directory:
         session = make_session()
-        coordinator = ExchangeCoordinator(Path(directory) / 'x.sock', {'r': session}, time.monotonic() + 5)
-        coordinator.start()
+        path = Path(directory) / 'x.sock'
+        startup = """
+import { createInterface } from 'node:readline';
+import { once } from 'node:events';
+const input = createInterface({input:process.stdin});
+await new Promise(resolve => setTimeout(resolve, Number(process.argv[2])));
+process.stdout.write('ready\\n');
+await once(input, 'line');
+input.close();
+"""
+        client = subprocess.Popen([shutil.which('node') or 'node', '--input-type=module', '-e', startup + script,
+                                   str(path), str(startup_delay_ms)], stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        coordinator = None
         try:
-            result = subprocess.run([shutil.which('node') or 'node', '--input-type=module', '-e', script,
-                                     str(coordinator.path)], capture_output=True, text=True, timeout=4)
-            assert result.returncode == 0, result.stderr
+            assert select.select([client.stdout], [], [], 10)[0], 'Node startup exceeded its separate budget'
+            assert client.stdout.readline() == 'ready\n'
+            coordinator = ExchangeCoordinator(path, {'r': session}, time.monotonic() + 5)
+            coordinator.start()
+            _, error = client.communicate('go\n', timeout=4)
+            assert client.returncode == 0, error
             assert session.sequence == 3 and not coordinator.failed.is_set()
         finally:
-            coordinator.close()
+            if client.poll() is None:
+                client.kill()
+                client.communicate(timeout=2)
+            if coordinator is not None:
+                coordinator.close()
 
 
 def test_reconnections_cannot_reset_the_request_budget():

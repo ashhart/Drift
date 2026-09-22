@@ -19,3 +19,9 @@ def test_pure_python_stage_fixtures_use_the_current_interpreter():
         source = (ROOT / 'tests' / name).read_text()
         assert '/Library/Frameworks/' not in source
         assert 'Path(sys.executable)' in source
+
+
+def test_worker_fixture_uses_the_same_framework_as_the_sandbox_tests():
+    source = (ROOT / 'plugin/omp-drift/test/worker_provider.test.ts').read_text()
+    assert 'new WorkerProcess("/Library/Frameworks/Python.framework/Versions/3.11/bin/python3"' in source
+    assert 'deadline_ms: 1000' in source

@@ -19,7 +19,7 @@ class Sink {
 }
 function makeClient(root: string) {
   const fixture = resolve(import.meta.dir, "../../../scripts/omp/worker_fixture.py");
-  return new WorkerClient(new WorkerProcess("/usr/bin/python3", ["-S", fixture], { cwd: root, env: { DRIFT_WORKER_REPORT: root + "/worker.json" }, maxBytes: 65536 }),
+  return new WorkerClient(new WorkerProcess("/Library/Frameworks/Python.framework/Versions/3.11/bin/python3", ["-S", fixture], { cwd: root, env: { DRIFT_WORKER_REPORT: root + "/worker.json" }, maxBytes: 65536 }),
     { session: "fixture", worker: "fixture", model_id: "fixture", model_sha256: "a".repeat(64), translator_sha256: "b".repeat(64) }, limits, { backend: "fixture", nativeStates: ["fixture"] });
 }
 test("owned child maps text, tool call and terminal and sends the result once", async () => {
@@ -29,6 +29,7 @@ test("owned child maps text, tool call and terminal and sends the result once", 
     const provider = workerProvider(client, () => new Sink(), { closeOnStop: true });
     const user = { role: "user", content: "fixture" };
     const first = await provider(model, { messages: [user], tools: [tool] }).ended;
+    expect(first.message.errorMessage).toBeUndefined();
     expect(first.reason).toBe("toolUse");
     expect(first.message.content.map((part: any) => part.type)).toEqual(["text", "toolCall"]);
     first.message.content[0].signature = undefined;

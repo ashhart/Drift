@@ -114,3 +114,38 @@ Evidence SHA-256:
 No native inference, training or host mutation; energy and money not measured.
 Next gate: verify the replacement GitHub Actions run on its actual runners;
 local checks do not claim remote CI success or native model qualification.
+
+## 2026-09-22: CI cold-process follow-up
+
+Stage: CI fixture lifecycle; no native-stage advancement.
+Implementations: `24167258abb67807c991b2a3d9a5fe04f1d3dd88` and
+`4cbafc8a21fad16bcd352049077da7332c26d49f`.
+
+Run `35736018257` cleared all original failures; Python 3.11 and 3.13 passed.
+It exposed two timing failures: the plugin worker fixture stopped at its
+one-second deadline while launching the system Python, and Python 3.12's Node
+reconnect process exceeded the outer four-second bound without diagnostics.
+Those are recorded failures, not a successful replacement CI run.
+
+A 1.1-second delay on the system-Python launch reproduced the provider error.
+The fixture now uses the same pinned framework interpreter as the sandbox
+tests, with its original 1000 ms deadline unchanged and an explicit assertion
+for any allowlisted error diagnostic. That fault-injected test now passes;
+twenty independent repeats also passed.
+
+A 4.5-second Node startup delay reproduced the subprocess timeout. The reconnect
+test now waits for an explicit ready signal before starting the coordinator and
+its protocol clock; startup has a separate ten-second bound. Its original
+one-second request timeout, four-second exchange-process timeout and five-second
+coordinator deadline are unchanged. The delayed-start case is a permanent
+regression, and the original injected-delay command now passes too.
+This isolates startup from protocol timing without claiming to have measured
+the precise source of the earlier GitHub scheduling delay.
+
+Final local QA: PASSED, 1434 Python tests in 67.81 seconds, three required
+environment gates BLOCKED and one existing warning; 183 plugin tests with
+776 assertions in 2.18 seconds; TypeScript passed.
+Python-log SHA-256: `06d8b69e57a33d81b0b13c5400016bba0c3ab82c0274588674fc63d43e429a84`.
+Plugin-log SHA-256: `27827869da65ec7131f62204d9ed748a3d7cde1c4e0115a3dca1a2a01253a0f5`.
+No model inference, host mutation or native-runtime change; costs in money and
+energy were not measured. Next gate remains completion on actual CI runners.
