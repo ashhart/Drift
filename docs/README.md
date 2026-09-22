@@ -17,7 +17,7 @@ limits, or the [roadmap](ROADMAP.md) for the next engineering and research gates
 - [Technical reference](reference/README.md): exchange, model-cache, worker, OMP and service contracts.
 - [Evaluation](evaluation/README.md): interpretation of results, controls and trial requirements.
 - [Research](research/README.md): architecture studies and proposals, not compatibility promises.
-- [Agent execution contract](../AGENTS.md) and [engineering specification](../TELEPATHY_AGENT_ENGINEERING.md).
+- [Agent execution contract](../AGENTS.md) and [engineering contracts](reference/CONTRACTS.md).
 - [Current engineering record](agent-progress.md): the latest ticket and evidence pointers.
 
 [Historical records](history/README.md) preserve earlier results and decisions;

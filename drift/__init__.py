@@ -1,1 +1,1 @@
-"""Drift reference implementation; see TELEPATHY_AGENT_ENGINEERING.md."""
+"""Frozen-model KV collaboration and reference implementation."""

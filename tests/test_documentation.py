@@ -33,7 +33,7 @@ def test_documentation_has_one_current_status_and_a_reader_index():
 
 
 def test_local_documentation_links_resolve():
-    paths = [*(path for path in ROOT.glob("*.md") if path.name != "TELEPATHY_AGENT_ENGINEERING.md"),
+    paths = [*ROOT.glob("*.md"),
              ROOT / "plugin/omp-drift/README.md",
              *sorted((ROOT / "docs").rglob("*.md"))]
     broken = []
@@ -46,6 +46,17 @@ def test_local_documentation_links_resolve():
             if not destination.exists():
                 broken.append((str(path.relative_to(ROOT)), target))
     assert not broken, broken
+
+
+def test_current_contract_does_not_depend_on_standalone_handoff():
+    retired = 'TELEPATHY_AGENT_ENGINEERING.md'
+    assert not (ROOT / retired).exists()
+    assert not (ROOT / 'scripts/materialize.py').exists()
+    assert (ROOT / 'docs/reference/CONTRACTS.md').is_file()
+    for name in ('AGENTS.md', 'README.md', 'docs/ROADMAP.md', 'docs/README.md'):
+        assert retired not in (ROOT / name).read_text()
+    for path in (ROOT / 'drift').rglob('*.py'):
+        assert retired not in path.read_text(), path
 
 
 def test_historical_records_are_not_current_instructions():

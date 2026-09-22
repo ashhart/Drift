@@ -26,3 +26,8 @@ This cleanup changes no existing corpus, token IDs, checkpoint, translator,
 preregistration or scorer output. The pre-cleanup public source remains available
 at commit `e334afc589bee2386b9ad41732af447dce985605`, and the corresponding
 development source was privately archived before edits.
+
+The standalone handoff was subsequently removed from corpus inputs; its last
+public source snapshot is `daa6c90645cfed7fe5aed1fd8189b2dd066a3654`.
+Existing calibration and held-out artifacts remain unchanged; use their original
+source revision and hashes rather than rebuilding them from current documentation.

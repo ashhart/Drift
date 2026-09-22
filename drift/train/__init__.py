@@ -1,1 +1,1 @@
-"""Drift reference implementation; see TELEPATHY_AGENT_ENGINEERING.md."""
+"""Sidecar training with frozen backbone parameters."""

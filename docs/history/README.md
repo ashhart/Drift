@@ -12,7 +12,7 @@ for the supported path.
 | [Release assessment](RELEASE_READINESS.md) | Earlier workflow gaps and formal evaluation outcomes |
 | [D0-D7 roadmap](ROADMAP-2026-09-20.md) | Original product/research proposal |
 | [SSH baseline instructions](LIVE-SSH.md) | Reproduction context for old experiments, not the MCDMA launch path |
-| [Original engineering plan](original_plan.md) | Historical input referenced by the binding engineering handoff |
+| [Original engineering plan](original_plan.md) | Historical design input, not current implementation instructions |
 
 The former `docs/FRONTIER.md` was a 16-line placeholder, not the original
 experiment notebook. Its valid warnings now live in STATUS; the original
@@ -28,5 +28,7 @@ The pinned GLM connector also retains its original source bytes, including an
 old comment referring to `docs/GLM_PREFIX_REUSE.md`; that reference now maps to
 [prefix reuse](../reference/glm/GLM_PREFIX_REUSE.md). Editing that comment would
 invalidate the deployed bundle's hash without changing its behavior.
-The engineering handoff's embedded source appendix is likewise unchanged and
-describes its original extracted file layout, not the current documentation tree.
+The standalone engineering handoff and its duplicate source appendix have been
+removed from the current tree and preserved privately; published Git history
+still contains them. Current requirements live in the
+[engineering contracts](../reference/CONTRACTS.md) and [stage gates](../ROADMAP.md).

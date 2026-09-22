@@ -1,1 +1,1 @@
-"""Drift reference implementation; see TELEPATHY_AGENT_ENGINEERING.md."""
+"""Bounded activation codecs and transport interfaces."""

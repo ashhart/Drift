@@ -1,1 +1,1 @@
-"""Drift reference implementation; see TELEPATHY_AGENT_ENGINEERING.md."""
+"""Stateful model workers and native cache ownership."""

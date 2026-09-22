@@ -184,3 +184,31 @@ Private native-control result SHA-256:
 `d3fc853aefdc81b133f9343460ace1788bb7b0fb41330fe5f4598a54bc18e9d1`.
 General recall, source attribution and unattended lifecycle remain unqualified;
 per-invocation execution receipts cannot assert a scored recall result.
+
+## 2026-09-22: Retire the standalone engineering bundle
+
+Stage M-1 contract maintenance, PASSED locally, based on development commit
+`37cea7c1972cf28849ca2843e4c1feaa35d4c197`.
+Removed the obsolete standalone handoff and source-extraction script after
+privately preserving exact copies; published Git history remains recoverable.
+Current requirements now live in `docs/reference/CONTRACTS.md` and the roadmap,
+with agent instructions and documentation links updated.
+The corpus builder no longer requires the retired file; existing corpus
+artifacts, model weights, translators and runtime behavior remain unchanged.
+Reproducing an older corpus requires its original source revision and hashes.
+
+Two new documentation/corpus regressions failed before repair; focused checks
+then passed 5/5 in 0.07 seconds. Development baseline: 1493 passed, three
+environment gates BLOCKED in 72.84 seconds; after changes: 1495 passed, three
+BLOCKED in 70.39 seconds. Publication candidate `python -m pytest -q`: 1491
+passed, three environment gates BLOCKED, one existing warning in 68.08 seconds;
+`git diff --check` passed. Four development-only tests remain excluded.
+Candidate full-suite log SHA-256:
+`5625ed0a6c47904ab6c5ac44eb907428f392e713dea93d157d57994a6a930087`.
+Archived handoff SHA-256:
+`8b628c22da21392ae66ecf8b617133e113e70c7fd27a875ae057d3fbf93e7caa`.
+Current contract SHA-256:
+`955b9db795528665604320a19f0c7cadba685a03d5d1db83ae5e41b92127bddb`.
+No native host actions, model inference or training; money and energy unmeasured.
+Next gate is GitHub publication inspection of this cleanup; general recall,
+source attribution and unattended service qualification remain unchanged.

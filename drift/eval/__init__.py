@@ -1,1 +1,1 @@
-"""Drift reference implementation; see TELEPATHY_AGENT_ENGINEERING.md."""
+"""Controlled evaluation and external evidence accounting."""

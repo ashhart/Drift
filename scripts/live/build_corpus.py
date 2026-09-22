@@ -1,5 +1,4 @@
-"""Calibration/held-out corpus from this repository's own text, tokenized for both members with
-causal-endpoint alignment (D8). Writes ids only for the two tap scripts; text stays local."""
+"""Build a local text corpus with causal-endpoint alignment and separate tap IDs."""
 import argparse, hashlib, json, random, re
 from pathlib import Path
 from tokenizers import Tokenizer
@@ -12,12 +11,10 @@ parser.add_argument("--heldout", type=int, default=24)
 parser.add_argument("--jsonl", type=Path, help="generated passages (gen_corpus.py) instead of the repository text")
 args = parser.parse_args()
 glm, qwen = Tokenizer.from_file("local/tok/glm/tokenizer.json"), Tokenizer.from_file("local/tok/qwen/tokenizer.json")
-sources = [Path("TELEPATHY_AGENT_ENGINEERING.md"), *sorted(Path("docs").rglob("*.md")), *sorted(Path("drift").rglob("*.py")), Path("README.md"), Path("AGENTS.md")]
+sources = [*sorted(Path("docs").rglob("*.md")), *sorted(Path("drift").rglob("*.py")), Path("README.md"), Path("AGENTS.md")]
 chunks = []
 for path in ([] if args.jsonl else sources):
     text = path.read_text(encoding="utf-8")
-    if path.name == "TELEPATHY_AGENT_ENGINEERING.md":
-        text = text.split("## 15. Complete source appendix")[0]          # prose only; the code is covered by drift/*.py
     for para in re.split(r"\n\s*\n", text):
         para = para.strip()
         if 350 <= len(para) <= 900 and para.isascii():

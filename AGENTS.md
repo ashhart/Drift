@@ -3,8 +3,8 @@
 Keep modules focused on one responsibility; do not create or retain god files.
 Use single-line code comments; put longer explanations in documentation.
 
-Read TELEPATHY_AGENT_ENGINEERING.md before modifying the project. Treat this kit
-as a correctness reference, not evidence that cross-family drift already works.
+Read docs/reference/CONTRACTS.md and docs/STATUS.md before modifying the project.
+Treat reference code as a correctness aid, not evidence of qualified model recall.
 
 Start at M-1. Preserve the user's component names and M0-M6 research sequence.
 Read existing MCDMA/OMP source and SERIES.md before writing integrations. Locate

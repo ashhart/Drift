@@ -169,7 +169,7 @@ Keep that coordinator alive across exchanges. Spawning a new CLI process at each
 
 ## If you are an agent
 
-Read [AGENTS.md](AGENTS.md) and [TELEPATHY_AGENT_ENGINEERING.md](TELEPATHY_AGENT_ENGINEERING.md) before changing this repository. The handoff's embedded source is a historical reference, not a manifest for the current checkout.
+Read [AGENTS.md](AGENTS.md), the [engineering contracts](docs/reference/CONTRACTS.md) and [current status](docs/STATUS.md) before changing this repository.
 
 1. Read the [latest progress](docs/agent-progress.md) and identify the first failing or unimplemented gate. Preserve the M−1 through M6 sequence.
 2. Inspect the actual runtime and integration source. Do not invent provider APIs, model support, hardware guarantees or measurements.

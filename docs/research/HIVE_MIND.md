@@ -3,7 +3,7 @@
 **Status:** PROPOSED / NOT STARTED. Owner-approved direction, 18 September 2026.
 **Depends on:** Drift M1 cross-family evidence (see "Entry gate").
 **Relationship to the spec:** additive. Nothing here amends M−1 through M1 of
-`TELEPATHY_AGENT_ENGINEERING.md` except the three interface decisions H1–H3, which
+[the research sequence](../ROADMAP.md#research-sequence) except the three interface decisions H1–H3, which
 change code shape, not stage order, evidence, or claims.
 
 ## 1. Idea
