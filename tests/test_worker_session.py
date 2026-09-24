@@ -226,3 +226,74 @@ def test_cancelled_backend_exception_does_not_precede_cancellation_ack():
     reply = list(session.handle(command(3, 'cancel', {'target_seq': 3})))
     thread.join(1)
     assert output == [] and reply[0]['op'] == 'cancelled'
+
+
+def test_stdio_admits_the_next_stream_while_the_last_turns_thread_finishes():
+    import io
+    import json
+    import threading
+    import time
+    from drift.serving.worker_stdio import serve
+
+    class Lingering(threading.Event):   # the turn's thread sets this last, after its terminal frame is written
+        def set(self):
+            if threading.current_thread() is not threading.main_thread():
+                time.sleep(0.3)
+            super().set()
+
+    class Sink(io.StringIO):
+        def __init__(self):
+            super().__init__(); self.terminals = threading.Semaphore(0)
+
+        def write(self, text):
+            written = super().write(text)
+            if json.loads(text)['op'] == 'terminal':
+                self.terminals.release()
+            return written
+
+    class Client:   # sends the frame after a stream only once that stream's terminal frame is out, as a caller does
+        def __init__(self, frames, sink):
+            self.frames, self.sink, self.after_stream = list(frames), sink, False
+
+        def readline(self, limit):
+            if not self.frames:
+                return ''
+            if self.after_stream:
+                assert self.sink.terminals.acquire(timeout=5)
+            frame = self.frames.pop(0); self.after_stream = frame['op'] == 'stream'
+            return json.dumps(frame) + '\n'
+
+    session = WorkerSession('qwen', PINS, LIMITS, Backend()); session.stream_finished = Lingering()
+    frames = [command(0, 'open', {**PINS, 'limits': LIMITS, 'system_prompt': [], 'tools': []}),
+              command(1, 'own_prompt', {'text': 'a'}), command(2, 'stream', {'max_tokens': 8}),
+              command(3, 'own_prompt', {'text': 'b'}), command(4, 'stream', {'max_tokens': 8}), command(5, 'close', {})]
+    sink = Sink()
+    assert serve(session, Client(frames, sink), sink) == 0
+    assert [json.loads(line)['op'] for line in sink.getvalue().splitlines()] == [
+        'opened', 'own_prompt_ack', 'text', 'terminal', 'own_prompt_ack', 'text', 'terminal', 'closed']
+
+
+def test_stdio_still_refuses_a_stream_sent_during_a_live_turn():
+    import io
+    import json
+    import threading
+    from drift.serving.worker_stdio import serve
+    release = threading.Event()
+
+    class Slow(Backend):
+        def stream(self, max_tokens):
+            release.wait(5)
+            yield from Backend.stream(self, max_tokens)
+
+        def cancel(self, target_seq):
+            release.set(); super().cancel(target_seq)
+
+    session = WorkerSession('qwen', PINS, LIMITS, Slow())
+    frames = [command(0, 'open', {**PINS, 'limits': LIMITS, 'system_prompt': [], 'tools': []}),
+              command(1, 'own_prompt', {'text': 'a'}), command(2, 'stream', {'max_tokens': 8}), command(3, 'stream', {'max_tokens': 8})]
+    output = io.StringIO()
+    try:
+        assert serve(session, io.StringIO(''.join(json.dumps(x) + '\n' for x in frames)), output) == 2
+    finally:
+        release.set()
+    assert [json.loads(line)['op'] for line in output.getvalue().splitlines()][-1] == 'error'

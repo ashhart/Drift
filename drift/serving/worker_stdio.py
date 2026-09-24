@@ -32,6 +32,8 @@ def serve(session, source, sink):
             if type(frame) is not dict:
                 return 2
             if frame.get('op') == 'stream':
+                if active is not None and session.active_seq is None:
+                    active.join(timeout=1)          # the last turn has ended; its thread may still be finishing
                 if active is not None and active.is_alive():
                     emit(frame)
                     return 2
