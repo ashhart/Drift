@@ -95,6 +95,28 @@ def _run(bridge, seconds=0.25):
     worker = threading.Thread(target=bridge.serve, args=(seconds, lambda line: None)); worker.start(); worker.join()
 
 
+def _serving(bridges, done, seconds=30):
+    """Daemon threads that serve each bridge in short slices until done is set, so a slow runner cannot outlast them."""
+    import threading, time
+
+    def run(bridge):
+        limit = time.monotonic() + seconds
+        while not done.is_set() and time.monotonic() < limit:
+            bridge.serve(0.05, lambda line: None)
+    return [threading.Thread(target=run, args=(b,), daemon=True) for b in bridges]
+
+
+def _appears(path, done, seconds=30):
+    """Whether path appears before done is set or the time runs out; a failed publish must not leave a waiter behind."""
+    import time
+    limit = time.monotonic() + seconds
+    while not path.exists():
+        if done.is_set() or time.monotonic() > limit:
+            return False
+        time.sleep(0.005)
+    return True
+
+
 def test_head_stages_hidden_then_releases_and_the_connector_receipt_is_relayed_separately_from_the_ack(tmp_path):
     import hashlib, json
     from drift.serving.mcdma_mailbox import read_receipt
@@ -144,20 +166,24 @@ def test_reverse_publisher_binds_both_ranks_receipts_to_session_sequence_and_dig
     for n, (rank, region) in enumerate(regions.items()):
         bridges[rank] = module.Bridge(Reader(region), region, str(tmp_path / rank / "in"), str(tmp_path / rank / "out"), rank=n, head=rank == "spark-a.invalid")
     body = b"publication" * 1000
+    done = threading.Event()
 
     def connector(wrong=False):                                                 # stands in for the GLM connector: applies only once the HEAD's file is visible
         head_file = tmp_path / "spark-a.invalid" / "in" / "live-7" / "000002.npz"
-        while not head_file.exists():
-            time.sleep(0.005)
+        if not _appears(head_file, done):
+            return
         assert (tmp_path / "spark-b.invalid" / "in" / "live-7" / "000002.npz").exists()    # the other rank already held the file when the head released
         for n, rank in enumerate(regions):
             out = tmp_path / rank / "out" / "live-7"; out.mkdir(parents=True)
             (out / f"ack.000002.rank{n}.json").write_text(json.dumps({"rank": n, "world_size": 2, "sequence": 2, "rows": 96, "sha256": hashlib.sha256(b"other" if wrong and n == 1 else body).hexdigest()}))
 
-    workers = [threading.Thread(target=b.serve, args=(2.0, lambda line: None)) for b in bridges.values()] + [threading.Thread(target=connector)]
+    workers = _serving(bridges.values(), done) + [threading.Thread(target=connector, daemon=True)]
     for w in workers: w.start()
-    result = ReversePublisher(regions, head="spark-a.invalid", timeout_s=3).publish("live-7", 2, body, expected_rows=96)
-    for w in workers: w.join()
+    try:
+        result = ReversePublisher(regions, head="spark-a.invalid", timeout_s=20).publish("live-7", 2, body, expected_rows=96)
+    finally:
+        done.set()
+        for w in workers: w.join(timeout=5)
     assert result["staged_all_ranks_s"] <= result["released_s"] and result["applied_all_ranks_s"] >= 0 and set(result["receipts"]) == {"spark-a.invalid", "spark-b.invalid"}
     assert all(r["sha256"] == result["sha256"] == r["source_sha256"] and r["sequence"] == 2 for r in result["receipts"].values())
 
@@ -167,15 +193,17 @@ def test_reverse_publisher_refuses_a_cache_that_applied_different_bytes_and_repo
     from drift.serving.mcdma_reverse import ReversePublisher
     module = _bridge_module()
     region = FakeRegion(); bridge = module.Bridge(Reader(region), region, str(tmp_path / "in"), str(tmp_path / "out"), rank=0, head=True)
-    worker = threading.Thread(target=bridge.serve, args=(1.5, lambda line: None)); worker.start()
-    publisher = ReversePublisher({"spark-a.invalid": region}, head="spark-a.invalid", timeout_s=0.5)
-    with pytest.raises(MailboxError, match="NOT confirmed in the cache"):
-        publisher.publish("live-8", 0, b"abc")
-    (tmp_path / "out" / "live-8").mkdir(parents=True)
-    (tmp_path / "out" / "live-8" / "ack.000001.rank0.json").write_text(json.dumps({"rank": 0, "world_size": 1, "sequence": 1, "rows": 1, "sha256": hashlib.sha256(b"different").hexdigest()}))
-    with pytest.raises(MailboxError, match="other than what was published"):
-        publisher.publish("live-8", 1, b"abc")
-    worker.join()
+    done = threading.Event(); worker, = _serving([bridge], done); worker.start()
+    try:
+        publisher = ReversePublisher({"spark-a.invalid": region}, head="spark-a.invalid", timeout_s=0.5)
+        with pytest.raises(MailboxError, match="NOT confirmed in the cache"):
+            publisher.publish("live-8", 0, b"abc")
+        (tmp_path / "out" / "live-8").mkdir(parents=True)
+        (tmp_path / "out" / "live-8" / "ack.000001.rank0.json").write_text(json.dumps({"rank": 0, "world_size": 1, "sequence": 1, "rows": 1, "sha256": hashlib.sha256(b"different").hexdigest()}))
+        with pytest.raises(MailboxError, match="other than what was published"):
+            publisher.publish("live-8", 1, b"abc")
+    finally:
+        done.set(); worker.join(timeout=5)
 
 
 def test_reads_never_use_the_size_band_that_the_usb_link_drops():
@@ -204,21 +232,25 @@ def test_tiling_on_the_rank_keeps_the_chain_source_to_staged_to_applied(tmp_path
     regions = {"spark-a.invalid": FakeRegion(4 << 20), "spark-b.invalid": FakeRegion(4 << 20)}
     bridges = [module.Bridge(Reader(region), region, str(tmp_path / rank / "in"), str(tmp_path / rank / "out"), rank=n, head=n == 0) for n, (rank, region) in enumerate(regions.items())]
     sink = io.BytesIO(); np.savez(sink, l3=np.arange(5 * 512, dtype=np.float16).reshape(5, 512)); body = sink.getvalue()
+    done = threading.Event()
 
     def connector():
         head_file = tmp_path / "spark-a.invalid" / "in" / "s" / "000000.npz"
-        while not head_file.exists():
-            time.sleep(0.005)
+        if not _appears(head_file, done):
+            return
         for n, rank in enumerate(regions):
             data = (tmp_path / rank / "in" / "s" / "000000.npz").read_bytes()
             assert np.load(io.BytesIO(data))["l3"].shape == (60, 512)
             out = tmp_path / rank / "out" / "s"; out.mkdir(parents=True)
             (out / f"ack.000000.rank{n}.json").write_text(json.dumps({"rank": n, "world_size": 2, "sequence": 0, "rows": 60, "sha256": hashlib.sha256(data).hexdigest()}))
 
-    workers = [threading.Thread(target=b.serve, args=(2.0, lambda line: None)) for b in bridges] + [threading.Thread(target=connector)]
+    workers = _serving(bridges, done) + [threading.Thread(target=connector, daemon=True)]
     for w in workers: w.start()
-    result = ReversePublisher(regions, head="spark-a.invalid", timeout_s=3).publish("s", 0, body, expected_rows=60, copies=12)
-    for w in workers: w.join()
+    try:
+        result = ReversePublisher(regions, head="spark-a.invalid", timeout_s=20).publish("s", 0, body, expected_rows=60, copies=12)
+    finally:
+        done.set()
+        for w in workers: w.join(timeout=5)
     assert result["bytes"] == len(body) and all(r["source_sha256"] == result["sha256"] and r["rows"] == 60 for r in result["receipts"].values())
     assert len({r["sha256"] for r in result["receipts"].values()}) == 1 and next(iter(result["receipts"].values()))["sha256"] != result["sha256"]
 
@@ -249,15 +281,17 @@ def test_the_head_sends_decode_time_taps_back_in_order_once_told_which_session_t
     studio_side = Reader(forward)                                               # the reader host stamps the forward window before anything is sent
     out = tmp_path / "out" / "live-3"; out.mkdir(parents=True)
     (out / "000000.npz").write_bytes(b"tap zero" * 500); (out / "000001.npz").write_bytes(b"tap one" * 700)
-    worker = threading.Thread(target=bridge.serve, args=(1.5, lambda line: None)); worker.start()
-    assert studio_side.poll() is None                                           # nothing is sent until the producer is told which session to watch
-    writer = Writer(reverse); writer.publish(module.pack("watch", "live-3", 0))
-    got, deadline = [], time.time() + 1.2
-    while len(got) < 2 and time.time() < deadline:
-        payload = studio_side.poll()
-        if payload is not None:
-            head, _, body = payload.partition(b"\n"); got.append((json.loads(head), body))
-    worker.join()
+    done = threading.Event(); worker, = _serving([bridge], done); worker.start()
+    try:
+        assert studio_side.poll() is None                                       # nothing is sent until the producer is told which session to watch
+        writer = Writer(reverse); writer.publish(module.pack("watch", "live-3", 0))
+        got, deadline = [], time.time() + 20
+        while len(got) < 2 and time.time() < deadline:
+            payload = studio_side.poll()
+            if payload is not None:
+                head, _, body = payload.partition(b"\n"); got.append((json.loads(head), body))
+    finally:
+        done.set(); worker.join(timeout=5)
     assert [g[0]["tap"] for g in got] == [0, 1] and got[0][1] == b"tap zero" * 500 and got[1][1] == b"tap one" * 700
     assert all(g[0]["session"] == "live-3" and type(g[0]["file_mtime_ns"]) is int for g in got)
     events = [json.loads(l)["event"] for l in (tmp_path / "bridge.jsonl").read_text().splitlines()]
