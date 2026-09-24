@@ -53,6 +53,27 @@ class HandoffdClient:
     def status(self) -> list[str]:
         return self._exchange("STATUS")
 
+    def pull_file(self, peer: str, remote_path: str, local_path: str, unlink: bool = True) -> Pull:
+        """RDMA-READ one remote file into a local file, for exports larger than the peer's shared memory."""
+        if not _PEER.fullmatch(peer) or not _PATH.fullmatch(remote_path) or ".." in remote_path or not _PATH.fullmatch(local_path) or ".." in local_path:
+            raise ValueError("invalid peer or path")
+        for line in self._exchange(f"PULL {peer} {remote_path} {local_path} {int(unlink)}"):
+            parts = line.split()
+            if parts[:2] == ["OK", peer] and len(parts) >= 8:
+                return Pull(peer, int(parts[2]), int(parts[3]), int(parts[4]), float(parts[5]), int(parts[6]), int(parts[7]))
+            if parts and parts[0] == "ERR":
+                raise HandoffdError(" ".join(parts[1:])[:200])
+        raise HandoffdError("no result line for the pull")
+
+    def test_orphan(self, peer: str) -> None:
+        """Recovery tests only: the daemon forgets the peer's control connection without closing it, as one that died
+        silently would be left; the next pull must reconnect on its own."""
+        if not _PEER.fullmatch(peer):
+            raise ValueError("invalid peer")
+        lines = self._exchange(f"TEST_ORPHAN {peer}")
+        if lines != [f"ORPHANED {peer}"]:
+            raise HandoffdError(" ".join(lines)[:200] or "no reply")
+
     def pull(self, peer: str, remote_path: str, offset: int = 0, unlink: bool = True) -> Pull:
         """RDMA-READ one remote file into the peer's shared memory at `offset` (4096-aligned)."""
         if not _PEER.fullmatch(peer) or not _PATH.fullmatch(remote_path) or ".." in remote_path or offset < 0 or offset % 4096:

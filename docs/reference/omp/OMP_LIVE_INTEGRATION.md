@@ -1,5 +1,15 @@
 # OMP live integration
 
+Current product boundary: the installed `/drift` command still controls only the
+reference service. The experimental provider now accepts an explicitly pinned
+KV-only pair, with fixed payload-free sync tools and no Duo text opt-in; see the
+[plugin guide](../../../plugin/omp-drift/README.md#promptless-subagents).
+Local tests cover repeated exchanges, parent-first parking and fail-closed
+cancellation. Automatic `/drift subagent enable` startup, peer admission without
+task-text relay and native qualification of this new mode remain BLOCKED.
+The historical implementation record below describes the original reference
+command guard, not the current extent of the separate native exchange scripts.
+
 Status: BLOCKED for the real GLM/Qwen repository workflow; PASSED for the local reference-start guard and plugin regressions only.
 Base commit: `9cad535084c6fdf5abecbb06d2a8ed9856463b84`.
 

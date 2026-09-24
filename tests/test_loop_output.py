@@ -22,7 +22,7 @@ def invoke(monkeypatch, output, artifact, attempted):
         def __exit__(self, *args):
             pass
 
-    hosts = SimpleNamespace(OMLX_PY="unused", SPARK="unused", SPARK_PEERS=[], STUDIO="unused")
+    hosts = SimpleNamespace(MCDMA_LINKS="192.0.2.1/192.0.2.40,198.51.100.1/198.51.100.40", OMLX_PY="unused", SPARK="unused", SPARK_PEERS=[], STUDIO="unused")
     monkeypatch.setitem(sys.modules, "livelib", hosts)
     monkeypatch.setitem(sys.modules, "loop_processes", SimpleNamespace(LoopProcesses=NoRemoteSetup, SSH_OPTIONS=[]))
     monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--glm-messages", "unused.json", "--qwen-messages", "unused.json",

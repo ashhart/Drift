@@ -38,6 +38,18 @@ try:
     from live_tap_finish import finish_stream, processed_frontier
 except ImportError:
     from drift.serving.live_tap_finish import finish_stream, processed_frontier
+try:
+    import glm_query_capture as query_capture
+except ImportError:
+    import drift.serving.glm_query_capture as query_capture
+try:
+    import glm_hidden_capture as hidden_capture
+except ImportError:
+    import drift.serving.glm_hidden_capture as hidden_capture
+try:
+    from glm_state_compute import layer_modules
+except ImportError:
+    from drift.serving.glm_state_compute import layer_modules
 _NAME = re.compile(r"^[A-Za-z0-9_.-]{1,96}$")
 _ATTN = re.compile(r"^language_model\.model\.layers\.(\d+)\.self_attn\.attn$")
 LATENT, PACKED = 512, 528
@@ -69,12 +81,26 @@ class LiveStep:
     failed_code: str = ""                 # allowlisted numeric diagnostics for scheduler-side refusals (see LiveReceiverError.fields)
     failed_details: tuple = ()
     verified: int = 0
+    state_blob: str = ""                  # handoff id whose exported recurrent state each rank writes at the reserve's end
+    state_rows: bool = False              # advance that state by the memory's per-layer inputs in state.npz
+
+
+@dataclass
+class CaptureStep:
+    """This step's share of a capture's prompt rows; every step holding rows must hold the request alone."""
+    request_id: str
+    name: str
+    positions: tuple[int, ...] = ()
+    before: int = 0                                                  # the step's first computed position
+    failed: str = ""
+    final: bool = True                                               # the capture's last rows: write the file after this step
 
 
 @dataclass
 class DriftMetadata(_base.Glm53HandoffMetadata):
     inject: list[InjectStep] = field(default_factory=list)
     live: list[LiveStep] = field(default_factory=list)
+    capture: list[CaptureStep] = field(default_factory=list)
 
 
 class DriftGlm53Connector(_base.Glm53HandoffConnector):
@@ -86,6 +112,10 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
         self._live_worker: dict[str, dict] = {}                   # worker: per session {filled, tapped}
         self._live_in, self._live_out = Path(self._output_path) / "tp-live-in", Path(self._output_path) / "tp-live-out"
         self._live_tap_every = int(self._kv_transfer_config.get_from_extra_config("drift_tap_every", 8))
+        self._query_capture = bool(self._kv_transfer_config.get_from_extra_config("drift_query_capture", False))
+        self._hidden_capture = bool(self._kv_transfer_config.get_from_extra_config("drift_hidden_capture", False))
+        self._capture_pending: dict[str, CaptureStep] = {}               # scheduler: capture requests not yet computed
+        self._capture_dir = Path(self._output_path) / "drift-capture"
 
     # Scheduler side ------------------------------------------------------
     def on_new_request(self, request: Any) -> None:
@@ -119,7 +149,22 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
                     state['prefill_boundary'] = stop
             except ValueError:
                 state['failed'] = 'invalid initial prefill boundary'
+            blob = params.get("drift_state_blob")
+            if blob is not None and not state["failed"]:
+                if not isinstance(blob, str) or not _NAME.match(blob):
+                    state["failed"] = "drift_state_blob must match [A-Za-z0-9_.-]{1,96}"
+                elif state.get("prefill_boundary") != first + reserve:
+                    state["failed"] = "a recurrent state needs drift_prefill_boundary at the reserve's end"
+                else:
+                    state["state_blob"] = blob
+            rows = params.get("drift_state_rows")
+            if rows is not None and not state["failed"]:
+                if rows is not True or "state_blob" not in state:
+                    state["failed"] = "drift_state_rows must be the literal true, with drift_state_blob naming the head's state"
+                else:
+                    state["state_rows"] = True
             logger.info("drift live %s: reserved span %d..%d of %d prompt tokens", state["name"], first, first + reserve, prompt_len)
+        self._admit_capture(request, params)
         name = params.get("drift_inject")
         if not name:
             return
@@ -188,7 +233,8 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
                 while len(apply) < 4 and (self._live_in / state["name"] / f"{state['next_seq']:06d}.npz").exists():
                     apply.append(state["next_seq"]); state["next_seq"] += 1
             live.append(LiveStep(request_id, state["name"], state["reserve"], state["start"], state["blocks"], int(before), int(before + scheduled), tuple(apply), state["tap"], state["failed"],
-                                 state.get("code", ""), state.get("details", ()), verified))
+                                 state.get("code", ""), state.get("details", ()), verified, state.get("state_blob", ""),
+                                 state.get("state_rows", False)))
 
         for new in scheduler_output.scheduled_new_reqs:
             if new.req_id in self._live:
@@ -197,7 +243,53 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
             if request_id in self._live:
                 live_step(request_id, cached.new_block_ids[index], request_id in cached.resumed_req_ids, cached.num_computed_tokens[index],
                           scheduler_output.num_scheduled_tokens.get(request_id, 0))
-        return DriftMetadata(requests=list(getattr(inherited, "requests", []) or []), inject=ready, live=live)
+        return DriftMetadata(requests=list(getattr(inherited, "requests", []) or []), inject=ready, live=live,
+                             capture=self._capture_ready(scheduler_output))
+
+    def _admit_capture(self, request: Any, params: dict) -> None:
+        name = params.get("drift_capture")
+        if not name:
+            return
+        rows = params.get("drift_capture_rows")
+        prompt_len = len(getattr(request, "prompt_token_ids", None) or [])
+        step = CaptureStep(request.request_id, str(name))
+        if not (self._query_capture or self._hidden_capture):
+            step.failed = "this server was not started with drift_query_capture or drift_hidden_capture"
+        elif not _NAME.match(step.name):
+            step.name, step.failed = "invalid-name", "drift_capture must match [A-Za-z0-9_.-]{1,96}"
+        elif not (isinstance(rows, list) and 0 < len(rows) <= 512 and all(type(v) is int for v in rows)
+                  and rows == sorted(set(rows)) and 0 <= rows[0] and rows[-1] < prompt_len):
+            step.failed = f"drift_capture_rows must be 1..512 increasing positions inside the prompt ({prompt_len} tokens)"
+        else:
+            step.positions = tuple(rows)
+        request.skip_reading_prefix_cache = True                  # every captured row must be computed in this request's step
+        self._capture_pending[request.request_id] = step
+
+    def _capture_ready(self, scheduler_output: Any) -> list[CaptureStep]:
+        ready = []
+        total = getattr(scheduler_output, "total_num_scheduled_tokens", None)
+        cached = scheduler_output.scheduled_cached_reqs
+        scheduled = [(new.req_id, new.num_computed_tokens) for new in scheduler_output.scheduled_new_reqs]
+        scheduled += [(request_id, cached.num_computed_tokens[i]) for i, request_id in enumerate(cached.req_ids)]
+        for request_id, before in scheduled:
+            pending = self._capture_pending.get(request_id)
+            if pending is None:
+                continue
+            after = before + scheduler_output.num_scheduled_tokens.get(request_id, 0)
+            rows = tuple(p for p in pending.positions if before <= p < after)
+            if not pending.failed and pending.positions and pending.positions[0] < before:
+                pending.failed = f"capture row {pending.positions[0]} was computed in a step the connector did not see"
+            if not pending.failed and not rows:
+                continue                                          # the rows come in a later step
+            if not pending.failed and total is not None and total != after - before:
+                pending.failed = "a capture step must hold this request alone"
+            left = tuple(p for p in pending.positions if p >= after)
+            ready.append(CaptureStep(request_id, pending.name, rows, before, pending.failed, final=bool(pending.failed) or not left))
+            if pending.failed or not left:
+                self._capture_pending.pop(request_id)
+            else:
+                pending.positions = left
+        return ready
 
     def _live_finished(self, request: Any) -> None:
         state = self._live.pop(request.request_id, None)
@@ -211,19 +303,107 @@ class DriftGlm53Connector(_base.Glm53HandoffConnector):
     def request_finished(self, request: Any, block_ids: Any):
         self._live_finished(request)
         self._tp_pending.pop(request.request_id, None)
+        self._capture_pending.pop(request.request_id, None)
         return super().request_finished(request, block_ids)
 
     def request_finished_all_groups(self, request: Any, block_ids: Any):
         self._live_finished(request)
         self._tp_pending.pop(request.request_id, None)
+        self._capture_pending.pop(request.request_id, None)
         return super().request_finished_all_groups(request, block_ids)
 
     # Worker side ---------------------------------------------------------
     def _drift_rank_failed(self, failed):
         return any_rank_failed(failed, self._tp()[1])
 
+    def register_kv_caches(self, kv_caches: dict[str, Any]):
+        super().register_kv_caches(kv_caches)
+        if self._query_capture:
+            logger.info("drift query capture: MLAAttention wrapper %s", "installed" if query_capture.install() else "unavailable")
+        if self._hidden_capture:
+            logger.info("drift hidden capture: KDA wrapper %s", "installed" if hidden_capture.install() else "unavailable")
+
+    def start_load_kv(self, forward_context: Any, **kwargs: Any) -> None:
+        super().start_load_kv(forward_context, **kwargs)
+        if not getattr(self, "_kda_modules", None) and forward_context is not None:
+            self._kda_modules = layer_modules(getattr(forward_context, "no_compile_layers", None))
+        steps = getattr(self._get_connector_metadata(), "capture", None) or []
+        query_capture.CAPTURE.clear()
+        hidden_capture.CAPTURE.clear()
+        live = [step for step in steps if not step.failed]
+        if self._query_capture and live:
+            query_capture.CAPTURE.layers = frozenset(self._capture_layers().values())
+            query_capture.CAPTURE.active = True
+        if self._hidden_capture and live and self._tp()[0] == 0:           # every rank holds the same layer input
+            import torch
+            hidden_capture.CAPTURE.rows = torch.as_tensor([p - live[0].before for p in live[0].positions], dtype=torch.long)
+            hidden_capture.CAPTURE.active = True
+
+    def _capture_layers(self) -> dict[int, str]:
+        names = {}
+        for layer_name in self._kv_caches:
+            match = _ATTN.match(layer_name)
+            if match and self._layer_to_group.get(layer_name) == self._mla_group:
+                names[int(match.group(1))] = layer_name
+        return names
+
+    def _finish_captures(self, steps: list) -> None:
+        rank = self._tp()[0]
+        parts = self.__dict__.setdefault("_capture_parts", {})       # worker: capture name -> rows gathered so far
+        try:
+            for step in steps:
+                try:
+                    if step.failed:
+                        raise RuntimeError(step.failed)
+                    part = parts.setdefault(step.name, {"positions": [], "queries": {}, "hidden": {}, "scale": None, "heads": None})
+                    part["positions"] += list(step.positions)
+                    if self._query_capture:
+                        for layer, name in sorted(self._capture_layers().items()):
+                            record = query_capture.CAPTURE.records.get(name)
+                            if record is None:
+                                raise RuntimeError(f"layer {layer} recorded no query this step")
+                            latent, part["scale"] = query_capture.latent_queries(record, [p - step.before for p in step.positions])
+                            part["queries"].setdefault(layer, []).append(latent)
+                            part["heads"] = latent.shape[1]
+                    if self._hidden_capture and rank == 0:
+                        expected = len([g for g in self._layer_to_group.values() if g in self._state_groups])
+                        records = hidden_capture.CAPTURE.records
+                        if len(records) != expected:
+                            raise RuntimeError(f"{len(records)} of {expected} recurrent layers recorded their input; the server must run eagerly")
+                        for layer, value in records.items():
+                            part["hidden"].setdefault(layer, []).append(value)
+                    if not step.final:
+                        continue
+                    parts.pop(step.name, None)
+                    report = {"rows": len(part["positions"])}
+                    if self._query_capture:
+                        layers = {layer: np.concatenate(values) for layer, values in part["queries"].items()}
+                        query_capture.save(self._capture_dir / f"{step.name}.rank{rank}.npz", layers, part["scale"], rank * part["heads"], part["positions"])
+                        report.update(layers=len(layers), heads=part["heads"])
+                    if self._hidden_capture and rank == 0:
+                        import torch
+                        records = {layer: torch.cat(values) for layer, values in part["hidden"].items()}
+                        hidden_capture.save(self._capture_dir / f"{step.name}.hidden.npz", records, part["positions"])
+                        report.update(hidden_layers=len(records))
+                    self._capture_mark(step.name, rank, "done", report)
+                except Exception as error:
+                    parts.pop(step.name, None)
+                    logger.error("drift capture %s rank %d failed: %s", step.name, rank, error)
+                    self._capture_mark(step.name, rank, "error", {"error": str(error)[:500]})
+        finally:
+            query_capture.CAPTURE.clear()
+            hidden_capture.CAPTURE.clear()
+
+    def _capture_mark(self, name: str, rank: int, kind: str, payload: dict) -> None:
+        self._capture_dir.mkdir(parents=True, exist_ok=True)
+        tmp = self._capture_dir / f".{name}.rank{rank}.{kind}.tmp"
+        tmp.write_text(json.dumps(payload))
+        os.replace(tmp, self._capture_dir / f"{name}.rank{rank}.{kind}")
+
     def wait_for_save(self):
         metadata = self._get_connector_metadata()
+        if getattr(metadata, "capture", None):
+            self._finish_captures(metadata.capture)
         for step in getattr(metadata, "inject", None) or []:
             save_step(self, step, False, logger)
         for step in getattr(metadata, "live", None) or []:

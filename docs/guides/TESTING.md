@@ -55,7 +55,7 @@ The temporary directory holds only this smoke run's reports and is not uploaded 
 
 No MiniMax or Nemotron adapter is registered in this checkout. Having those models and a working MCDMA link does not yet supply their canonical cache taps, receiver integration or trained directional translators. Adapter source presence and registry entries are not qualification evidence; a skipped required HF test leaves the real-adapter gate `BLOCKED`.
 
-The existing live experiment imports oMLX and MLX-VLM internals, selects a particular local Qwen checkpoint, uses explicit layer/head mappings and both directions' fitted translator artifacts, and expects a matching GLM connector and two-rank mailbox setup. It also embeds deployment-specific addresses and paths. Changing the SSH host environment variables alone does not make that experiment portable.
+The existing live experiment imports oMLX and MLX-VLM internals, selects a particular local Qwen checkpoint, uses explicit layer/head mappings and both directions' fitted translator artifacts, and expects a matching GLM connector and two-rank mailbox setup. It also embeds deployment-specific paths. The coordinators read the Studio's MCDMA legs from `DRIFT_MCDMA_LINKS`, one `target/source` address pair per rank with the head first, and refuse a linked run without them. The repository holds no real address. Changing the SSH host and link environment variables alone does not make that experiment portable.
 
 ## Before a live test can be offered
 

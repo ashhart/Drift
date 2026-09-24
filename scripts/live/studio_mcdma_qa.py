@@ -89,14 +89,20 @@ for line in sys.stdin:
         ids = tok.encode(job["text"], add_special_tokens=False).ids
         native = lm.make_cache(); step(ids, native, 0); own = tap(native, list(QL), rope, 0, len(ids)); del native
         wrong = previous if previous is not None else memory["v4"]
+        question_ids = len(tok.encode(job["text"], add_special_tokens=False).ids)
         for q in job["questions"]:
-            answers = {"no_memory": answer(q["question"], lm.make_cache(), 0)[0],
-                       "drift_v3": answer(q["question"], remember(memory["v3"][0], len(memory["v3"][2])), len(memory["v3"][2]))[0],
-                       "drift_v4": answer(q["question"], remember(memory["v4"][0], len(memory["v4"][2])), len(memory["v4"][2]))[0],
-                       "wrong_memory": answer(q["question"], remember(wrong[0], len(wrong[2])), len(wrong[2]))[0] if previous is not None else None,
-                       "own_kv": answer(q["question"], remember(own, len(ids)), len(ids))[0],
-                       "text_in_prompt": answer(f"{job['text']}\n\n{q['question']}", lm.make_cache(), 0)[0]}
-            row = {"passage": job["id"], **q, **answers, "transport": {"bytes": pulled.bytes, "rdma_loop_s": pulled.loop_ns / 1e9, "rdma_gbit_s": pulled.gbit_s, "job_s": pulled.job_ns / 1e9, "translate_both_s": round(t_translate, 4)}}
+            # answer() already returns its own time to first token; keep it instead of discarding it.
+            produced = {"no_memory": answer(q["question"], lm.make_cache(), 0),
+                        "drift_v3": answer(q["question"], remember(memory["v3"][0], len(memory["v3"][2])), len(memory["v3"][2])),
+                        "drift_v4": answer(q["question"], remember(memory["v4"][0], len(memory["v4"][2])), len(memory["v4"][2])),
+                        "wrong_memory": answer(q["question"], remember(wrong[0], len(wrong[2])), len(wrong[2])) if previous is not None else None,
+                        "own_kv": answer(q["question"], remember(own, len(ids)), len(ids)),
+                        "text_in_prompt": answer(f"{job['text']}\n\n{q['question']}", lm.make_cache(), 0)}
+            answers = {name: value[0] if value is not None else None for name, value in produced.items()}
+            first_token_s = {name: round(value[1], 6) for name, value in produced.items() if value is not None}
+            row = {"passage": job["id"], **q, **answers, "first_token_s": first_token_s,
+                   "prefill_tokens": {"passage": question_ids, "memory_rows": len(memory["v4"][2])},
+                   "transport": {"bytes": pulled.bytes, "rdma_loop_s": pulled.loop_ns / 1e9, "rdma_gbit_s": pulled.gbit_s, "job_s": pulled.job_ns / 1e9, "translate_both_s": round(t_translate, 4)}}
             with args.out.open("a") as sink:
                 sink.write(json.dumps(row) + "\n")
         previous = memory["v4"]

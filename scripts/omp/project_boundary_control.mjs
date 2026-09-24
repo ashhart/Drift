@@ -9,7 +9,7 @@ const token = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.-]{
 const sha = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 const optional = path => { try { return readPrivate(path); } catch (error) { if (error.code !== 'ENOENT') throw error; } };
 
-export function createProjectBoundary(path, expected) {
+export function createProjectBoundary(path, expected, { peerRequired = false } = {}) {
   try {
     require(sha(expected)); const raw = readPrivate(path); require(digest(raw) === expected);
     const config = JSON.parse(raw);
@@ -115,8 +115,8 @@ export function createProjectBoundary(path, expected) {
           if (released) return false;
           if (pending) return pending;
           if (repeated) require(epoch < config.max_epochs);
-          if (actor.role === 'parent' && tool === 'task' && (!repeated || !launched)) { launched = true; return false; }
-          if (actor.role === 'parent' && (!repeated || !launched) && !peerReady()) return false;
+          if (!peerRequired && actor.role === 'parent' && tool === 'task' && (!repeated || !launched)) { launched = true; return false; }
+          if (!peerRequired && actor.role === 'parent' && (!repeated || !launched) && !peerReady()) return false;
           if (repeated) require(typeof exchange === 'function');
           pending = park(context, exchange);
           if (!repeated) return pending;

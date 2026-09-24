@@ -11,6 +11,7 @@ a passing component test is not a passing native workflow.
 - [Bounded native GLM generated-prefix outbox](GLM_NATIVE_OUTBOX.md)
 - [GLM snapshot owner beside native own input](GLM_OWNER_WORKER.md)
 - [Prefix-cache reads for linked GLM sessions (proposal, prepared offline)](GLM_PREFIX_REUSE.md)
+- [GLM recurrent state at the reserve](GLM_RECURRENT_STATE.md)
 - [Controller-owned GLM snapshot versions](GLM_SNAPSHOT_BANK.md)
 - [Accepted GLM tap positions](GLM_TAP_FRONTIERS.md)
 - [Native GLM per-turn snapshot restoration](GLM_TURN_RESTORATION.md)

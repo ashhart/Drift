@@ -1,0 +1,20 @@
+{
+  "name": "drift-prefill-cost",
+  "label": "PREREGISTERED on 2026-09-22 before any time-to-first-token was recorded",
+  "question": "When two models need the same context, does the receiver that is given translated memory reach its first token sooner than the receiver that prefills the same context as text, and at what accuracy?",
+  "rationale": "A cache entry is not cheaper than text on the wire; it is about 11 kilobytes per token against a few bytes. The claim under test is not bandwidth. It is that the receiver does not have to prefill the shared context at all, because it arrives already computed.",
+  "design": {
+    "direction": "GLM on the Sparks exports, Qwen on the Studio receives. The receiver is oMLX, which appends entries to its cache; this direction uses no reserved placeholder span, so no vLLM prefill is charged to the receiver.",
+    "items": "the same 120 passages and 240 questions as Test A, unchanged artifacts",
+    "arms": "drift_v4 (question prefilled over a cache already holding translated memory) against text_in_prompt (passage and question prefilled together from an empty cache). Both already exist in scripts/live/studio_mcdma_qa.py; only their recorded timing is new.",
+    "measure": "time to first token on the Studio, measured inside the worker around the single prefill step, reported per question for every arm",
+    "sender_cost_reported_separately": "tap, translate, pack and RDMA transport are paid once by the sender and are recorded per passage, not folded into the receiver's time to first token"
+  },
+  "hypotheses": {
+    "P1_receiver_prefill_is_cheaper": "median TTFT(drift_v4) < median TTFT(text_in_prompt), clustered sign-flip over passages p < 0.05",
+    "P2_saving_is_material": "median TTFT(text_in_prompt) / median TTFT(drift_v4) >= 2.0"
+  },
+  "accuracy_is_not_renegotiated": "Exact match for both arms is already measured at 0.975 and 0.9833 over these questions. This run must reproduce those within the recorded run-to-run variation; a latency win accompanied by an accuracy change invalidates the comparison rather than improving it.",
+  "outcome_labels": "SUPPORTED if P1 and P2; PARTLY if only P1; NOT SUPPORTED otherwise. Reported whatever the outcome, including a result where text is faster.",
+  "limits": "Short synthetic passages of roughly 200 tokens. The receiver's saving should grow with shared context length and this run does not measure that curve. It excludes the sender's export and translation cost, which a single receiver must still pay somewhere; the saving is real only when the sender would have produced the context anyway or more than one receiver consumes it. It says nothing about the reverse direction, where a vLLM receiver does prefill a reserved placeholder span."
+}

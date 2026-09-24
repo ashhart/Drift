@@ -4,7 +4,8 @@ import json
 import struct
 import numpy as np
 import pytest
-from drift.serving.glm53_handoff import E4M3FN, MAGIC, dequantize_fp8_ds_mla, pack_fp8_ds_mla, read_latents
+from drift.serving.glm53_delta import read_latents_span, stitch
+from drift.serving.glm53_handoff import E4M3FN, MAGIC, read_header, dequantize_fp8_ds_mla, pack_fp8_ds_mla, read_latents
 from drift.translate.stacked import StackedReader
 
 
@@ -130,3 +131,25 @@ def test_stacked_reader_can_emit_mla_latents(tmp_path):
     reader = StackedReader.load(path, writer_layers=(1, 2), reader_layers=(3,), kv_heads=0, head_dim=6)
     x = {1: rng.standard_normal((5, 4)).astype(np.float32), 2: rng.standard_normal((5, 4)).astype(np.float32)}
     np.testing.assert_allclose(reader.read(x)[3], np.concatenate((x[1], x[2]), 1) @ W + 1.0, rtol=1e-5)
+
+
+def test_a_delta_export_starts_at_its_first_block_and_stitches_onto_a_prefix_export(tmp_path):
+    name = "language_model.model.layers.3.self_attn.attn"
+    full, truth = blob(tmp_path, 8, [name])
+    header, start = read_header(full)
+    header.update(export_from=8, n_tokens=16)                                                                  # one page of 8 slots from position 8
+    header["tensors"][0].update(first_block_index=1, pages_per_block=1)
+    body = json.dumps(header).encode()
+    delta = tmp_path / "delta.bin"
+    delta.write_bytes(MAGIC + struct.pack("<Q", len(body)) + body + b"\0" * (start - 16 - len(body)) + full.read_bytes()[start:])
+    with pytest.raises(ValueError, match="delta exports"):
+        read_latents(delta)
+    first, later = read_latents_span(delta)
+    assert first == 8 and later[3].shape == (8, 512)                                                          # positions 8 to 15
+    np.testing.assert_allclose(later[3], truth[name], rtol=1e-6)
+    prefix = {3: np.zeros((10, 512), np.float32)}
+    joined = stitch(prefix, first, later)
+    assert joined[3].shape == (16, 512) and not joined[3][:8].any()
+    with pytest.raises(ValueError, match="reach"):
+        stitch({3: np.zeros((7, 512), np.float32)}, first, later)
+

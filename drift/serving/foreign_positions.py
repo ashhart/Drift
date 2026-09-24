@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 
-from drift.serving.omlx_cache import _mx
+from drift.serving.omlx_cache import _mx, selector_block_reset
 
 
 def require(value, message):
@@ -84,7 +84,8 @@ class ForeignPositionBank:
                 require(len(shape) == 4 and shape[:2] == (1, self.heads) and shape[2] >= offset
                         and shape[3] == self.head_dim, "receiver key cache layout changed")
                 require(current.index_position_ids.shape == (1, offset), "receiver selector position layout changed")
-                require(callable(current.clear_index_blocks), "receiver cannot invalidate selector blocks")
+                reset = selector_block_reset(current)
+                require(reset is not None, "receiver cannot invalidate selector blocks")
                 canonical = mx.array(np.ascontiguousarray(self.canonical[layer].transpose(1, 0, 2)))[None]
                 rotated = rope.apply(canonical, positions).astype(current.keys.dtype)
                 finite = mx.all(mx.isfinite(rotated))
@@ -92,13 +93,13 @@ class ForeignPositionBank:
                 keys[:, :, slots, :] = rotated
                 selector_positions = copy.copy(current.index_position_ids)
                 selector_positions[:, slots] = mx.array(positions, dtype=selector_positions.dtype)[None]
-                staged.append((current, keys, selector_positions, finite))
+                staged.append((current, keys, selector_positions, finite, reset))
             require(len(offsets) == 1, "receiver cache layers disagree on length")
-            mx.eval([value for _, keys, positions, finite in staged for value in (keys, positions, finite)])
-            require(all(bool(finite.item()) for _, _, _, finite in staged), "nonfinite rephased foreign keys")
-            for current, keys, positions, _ in staged:
+            mx.eval([value for _, keys, positions, finite, _ in staged for value in (keys, positions, finite)])
+            require(all(bool(finite.item()) for _, _, _, finite, _ in staged), "nonfinite rephased foreign keys")
+            for current, keys, positions, _, reset in staged:
                 current.keys, current.index_position_ids = keys, positions
-                current.clear_index_blocks()
+                reset()
             self.rephase_calls += 1
             self.rephase_seconds += time.perf_counter() - started
         except Exception:

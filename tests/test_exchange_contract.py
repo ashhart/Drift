@@ -40,7 +40,7 @@ def test_a_rank_that_did_not_apply_is_not_a_transfer():
     with pytest.raises(ValueError):
         validate_exchange(record(applied_ranks=('spark-a.invalid',), receipts=('b' * 64,)), **bound())
     with pytest.raises(ValueError):
-        validate_exchange(record(applied_ranks=('spark-a.invalid', 'zgx3')), **bound())
+        validate_exchange(record(applied_ranks=('spark-a.invalid', 'spark-c.invalid')), **bound())
 
 
 def test_a_receipt_per_applied_rank_is_required():

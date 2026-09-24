@@ -12,6 +12,7 @@ import mlx.core as mx
 from tokenizers import Tokenizer
 from mlx_vlm.utils import load_model
 from omlx.engine.vlm import _force_qwen4_exp_sanitize_on_load
+from drift.serving.mcdma_links import HEAD, parse_links
 from drift.serving.mcdma_reverse import ReversePublisher
 from drift.serving.omlx_cache import Rope, kv_layer_indices, tap
 from drift.translate.stacked import StackedReader
@@ -20,11 +21,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--reverse", type=Path, default=Path("local/live/stacked3_rev.npz"))
 parser.add_argument("--gain-power", type=float, default=1.0)
 parser.add_argument("--build", type=Path, default=Path("out/mcdma-target/build"))
+parser.add_argument("--links", required=True, help="MCDMA legs to each rank as target/source, head first")
 args = parser.parse_args()
+legs = parse_links(args.links)
 GL, QL = tuple(3 + 4 * i for i in range(11)), tuple(3 + 4 * i for i in range(12))
 spec = importlib.util.spec_from_file_location("drift_mcdma", args.build / "mcdma.py"); mcdma = importlib.util.module_from_spec(spec); spec.loader.exec_module(mcdma)
 mcdma._load = lambda: ctypes.CDLL(str(args.build / "libmcdma.dylib"))
-publisher = ReversePublisher({"spark-a.invalid": mcdma.open("192.0.2.1", src="192.0.2.40"), "spark-b.invalid": mcdma.open("198.51.100.1", src="198.51.100.40")}, head="spark-a.invalid", timeout_s=60, split=32 << 20)   # fails here if a bridge is not up
+publisher = ReversePublisher({rank: mcdma.open(target, src=source) for rank, (target, source) in legs.items()}, head=HEAD, timeout_s=60, split=32 << 20)   # fails here if a bridge is not up
 ck = Path("~/.omlx/models/Vontra/Qwen3.8-Flash-Next-MLX-4bit-MTP").expanduser()
 cfg = json.loads((ck / "config.json").read_text()); t = cfg.get("text_config", cfg); rp = t.get("rope_parameters") or {}
 rope = Rope(float(rp.get("rope_theta", 1e7)), int(t["head_dim"] * float(rp.get("partial_rotary_factor", 1.0))))

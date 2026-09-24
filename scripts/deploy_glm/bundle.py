@@ -9,6 +9,7 @@ import tempfile
 
 ROOT_SOURCE = "drift/serving/vllm_glm53_inject.py"
 ENTRYPOINT = "drift_glm53_connector"
+MAX_MODULES = 24                                                    # engineering bound on the flat bundle
 
 
 def digest(data):
@@ -25,7 +26,7 @@ def load_manifest(path):
         raise ValueError("unsupported deployment manifest")
     files = manifest.get("files", [])
     mapping = {s["module"]: s["source"] for s in files}
-    if len(mapping) != len(files) or mapping.get(ENTRYPOINT) != ROOT_SOURCE or len(files) > 16:
+    if len(mapping) != len(files) or mapping.get(ENTRYPOINT) != ROOT_SOURCE or len(files) > MAX_MODULES:
         raise ValueError("deployment must contain one complete flat dependency closure")
     for name, source in mapping.items():
         expected = ROOT_SOURCE if name == ENTRYPOINT else "drift/serving/" + name + ".py"
@@ -84,7 +85,7 @@ def source_closure(root):
                 pending.append(str(local.relative_to(root)))
             elif imported.startswith("drift.") or imported.split(".")[0] not in sys.stdlib_module_names | {"numpy", "torch", "vllm"}:
                 raise ValueError("undeclared dependency: " + imported)
-        if len(found) > 16:
+        if len(found) > MAX_MODULES:
             raise ValueError("dependency closure exceeds the bundle limit")
     return found
 

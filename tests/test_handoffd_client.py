@@ -51,3 +51,34 @@ def test_blob_in_memory_parses_like_the_file(tmp_path):
     from_file, from_memory = read_latents(path), read_latents(memoryview(blob))
     assert list(from_file) == list(from_memory) == [3]
     np.testing.assert_array_equal(from_file[3], from_memory[3])
+
+
+def test_orphan_sends_the_test_command_and_checks_the_reply(tmp_path):
+    path = f"/tmp/drift-test-orphan-{os.getpid()}.sock"
+    try:
+        seen, thread = serve(path, ["ORPHANED spark-a.invalid\nEND\n", "ERR - bad TEST_ORPHAN\nEND\n"])
+        client = HandoffdClient(path, timeout_s=5)
+        client.test_orphan("spark-a.invalid")
+        assert seen[0] == "TEST_ORPHAN spark-a.invalid\n"
+        with pytest.raises(HandoffdError, match="bad TEST_ORPHAN"):
+            client.test_orphan("spark-a.invalid")
+        thread.join(timeout=5)
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+    with pytest.raises(ValueError):
+        HandoffdClient(path).test_orphan("spark-a.invalid;rm")
+
+
+def test_pull_file_names_the_local_file_in_the_command(tmp_path):
+    path = f"/tmp/drift-test-file-{os.getpid()}.sock"
+    try:
+        seen, thread = serve(path, ["OK spark-a.invalid 4096 1000 100 32.77 10 2000\nEND\n"])
+        result = HandoffdClient(path, timeout_s=5).pull_file("spark-a.invalid", "/dev/shm/glm53-handoff/x/rank0.bin", "/tmp/drift-pull/p3.bin", unlink=False)
+        assert seen[0] == "PULL spark-a.invalid /dev/shm/glm53-handoff/x/rank0.bin /tmp/drift-pull/p3.bin 0\n" and result.bytes == 4096
+        thread.join(timeout=5)
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+    with pytest.raises(ValueError):
+        HandoffdClient(path).pull_file("spark-a.invalid", "/dev/shm/x", "/tmp/../etc/x")

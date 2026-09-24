@@ -8,6 +8,7 @@ from drift.translate.stacked import StackedReader
 
 SPARK, STUDIO = os.environ.get("DRIFT_SPARK", "spark-a.invalid"), os.environ.get("DRIFT_STUDIO", "studio")
 SPARK_PEERS = [h for h in os.environ.get("DRIFT_SPARK_PEERS", "spark-b.invalid").split(",") if h]      # other tensor-parallel hosts
+MCDMA_LINKS = os.environ.get("DRIFT_MCDMA_LINKS", "")                                                  # Studio legs to each rank as target/source, head first
 OMLX = "/Applications/oMLX.app/Contents/Resources"
 OMLX_PY = f'PYTHONPATH="{OMLX}/Python/framework-mlx-base/lib/python3.11/site-packages:{OMLX}:." {OMLX}/Python/cpython-3.11/bin/python3'
 GLM_LAYERS, QWEN_LAYERS = tuple(3 + 4 * i for i in range(11)), tuple(3 + 4 * i for i in range(12))

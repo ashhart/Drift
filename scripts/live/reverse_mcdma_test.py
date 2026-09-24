@@ -3,10 +3,11 @@ Per item, three GLM sessions with the same prompt shape: memory (Qwen read the r
 passage), no_memory (nothing published; the span keeps its placeholders). Memory payloads travel Studio -> both Sparks only
 through the dedicated MCDMA targets; ssh carries control. Every publication must be confirmed by BOTH ranks' connector
 receipts, bound to the same session, sequence and SHA-256, separately from the mailbox acknowledgements."""
-import argparse, json, subprocess, sys, time, uuid
+import argparse, json, shlex, subprocess, sys, time, uuid
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from livelib import OMLX_PY, SPARK, SPARK_PEERS, STUDIO, sh
+from livelib import MCDMA_LINKS, OMLX_PY, SPARK, SPARK_PEERS, STUDIO, sh
+from drift.serving.mcdma_links import parse_links
 from questions_v3 import PRIORITY, QUESTION
 
 parser = argparse.ArgumentParser()
@@ -16,6 +17,10 @@ parser.add_argument("--skip", type=int, default=0)
 parser.add_argument("--copies", type=int, default=12)
 parser.add_argument("--out", type=Path, required=True)
 args = parser.parse_args()
+try:
+    parse_links(MCDMA_LINKS)
+except ValueError as error:
+    parser.error(f"DRIFT_MCDMA_LINKS: {error}")
 LINK = ("You are linked to another AI model through a shared memory. A document it has read is in your memory, not in this chat; you were never shown it as text. @@DRIFT@@ "
         "Answer the user's question from what you recall from that shared memory. Give the value directly and keep the answer to one short sentence. "
         "If the shared memory does not contain what is needed, say plainly that it is missing rather than guessing.")
@@ -35,7 +40,7 @@ bridges = [subprocess.Popen(["ssh", "-o", "ServerAliveInterval=15", host, f"pyth
            for rank, host in enumerate(hosts)]
 for b in bridges:
     print("bridge", b.stdout.readline().strip(), flush=True)
-worker = subprocess.Popen(["ssh", "-o", "ServerAliveInterval=15", STUDIO, f"cd ~/drift-frontier && {OMLX_PY} scripts/live/studio_mcdma_reverse.py 2>out/mcdma_reverse_worker.log"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+worker = subprocess.Popen(["ssh", "-o", "ServerAliveInterval=15", STUDIO, f"cd ~/drift-frontier && {OMLX_PY} scripts/live/studio_mcdma_reverse.py --links {shlex.quote(MCDMA_LINKS)} 2>out/mcdma_reverse_worker.log"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 print("studio", worker.stdout.readline().strip(), flush=True)
 
 

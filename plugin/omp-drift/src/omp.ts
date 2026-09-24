@@ -19,7 +19,12 @@ function showPersistedRun(api: OmpExtensionApi, context: CommandContext): void {
 	);
 }
 
-export default function driftExtension(api: OmpExtensionApi): void {
+export default async function driftExtension(api: OmpExtensionApi): Promise<void> {
+	let subagent;
+	if (process.env.DRIFT_WORKER_CONFIG) {
+		const { installSubagentCommand } = await import("../../../scripts/omp/subagent_command.mjs");
+		subagent = installSubagentCommand(api);
+	}
 	api.on("session_start", async (_event, context) => {
 		// Start clean and restore only the persisted summary.
 		if (runStateOf(context)) teardownRun(context);
@@ -46,5 +51,5 @@ export default function driftExtension(api: OmpExtensionApi): void {
 		};
 	});
 
-	registerDriftCommand(api);
+	registerDriftCommand(api, subagent);
 }

@@ -27,12 +27,18 @@ export function createProjectRouteCheck(actors) {
         const entries = config.workers.filter(entry => 'drift-experimental/' + entry.identity.model_id === actor.model);
         require(entries.length === 1); const entry = entries[0];
         require(entry.identity.worker === actor.worker && entry.identity.session === actor.session);
-        require(entry.experimental_multi_turn === true && entry.memory_mode === 'linked' && entry.communication_mode === 'text_and_artifacts' && entry.session_binding === 'fixed');
+        if (entry.subagent_role !== undefined) require(entry.subagent_role === actor.role);
+        require(entry.experimental_multi_turn === true && entry.memory_mode === 'linked' && ['text_and_artifacts', 'kv_only'].includes(entry.communication_mode) && entry.session_binding === 'fixed');
       }
       return config;
     };
-    owner(); let failed = false;
-    return (actor, ompSession, taskRoot) => {
+    const initial = owner();
+    const modes = new Set(initial.workers.map(entry => entry.communication_mode)); require(modes.size === 1);
+    const communicationMode = initial.workers[0].communication_mode;
+    const subagents = initial.workers.some(entry => entry.subagent_role !== undefined);
+    if (subagents) require(initial.workers.map(entry => entry.subagent_role).sort().join() === 'child,parent');
+    let failed = false;
+    const check = (actor, ompSession, taskRoot) => {
       try {
         require(!failed && exact(actor, actorFields));
         const match = bound.find(value => actorFields.every(field => actor[field] === value[field])); require(match);
@@ -43,5 +49,6 @@ export function createProjectRouteCheck(actors) {
         require(route.identity.worker === match.worker && route.identity.session === match.session && 'drift-experimental/' + route.identity.model_id === match.model);
       } catch { failed = true; fail(); }
     };
+    return Object.assign(check, { communicationMode, subagents });
   } catch { fail(); }
 }

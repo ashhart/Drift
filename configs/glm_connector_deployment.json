@@ -1,12 +1,12 @@
 {
   "version": 1,
   "entrypoint": "drift_glm53_connector",
-  "source_commit": "cca9f6d1fb8b2653999c34f42aa4c38bf85afb5d",
+  "source_commit": "076e176f6c27a3db7d8e5534ee3d0046616951c5",
   "files": [
     {
       "module": "drift_glm53_connector",
       "source": "drift/serving/vllm_glm53_inject.py",
-      "sha256": "3da5e508fc42d5bb0c4751973f0273f87b13120d854befc24b880453765fcf98"
+      "sha256": "0658e6e6d1eb40df4621143ab1c1299b7c0c0d0a92f4e2e3f014a4645fb456e1"
     },
     {
       "module": "glm53_handoff",
@@ -24,19 +24,39 @@
       "sha256": "0501a56bc1218dbd8459fad80aa92cc3b2c54b81d9441b7d390fbf5e3378c132"
     },
     {
+      "module": "glm_hidden_capture",
+      "source": "drift/serving/glm_hidden_capture.py",
+      "sha256": "a3ad65bf4eac4b9cded87f1e6c8afde29a1139aa6e965910dc242567c494ce2d"
+    },
+    {
       "module": "glm_prefill_boundary",
       "source": "drift/serving/glm_prefill_boundary.py",
-      "sha256": "d86047aae97bf32131d36c3635ca43089c321b2195fb2a9337fcc3e7516b7c25"
+      "sha256": "670e54475a8fd5a2684908042d801b2f45353a3945a07230488aa9ef050e0ce8"
     },
     {
       "module": "glm_prefill_scheduler",
       "source": "drift/serving/glm_prefill_scheduler.py",
-      "sha256": "a361f308bf85faf921b0ad4376a22fd868a52e2c02d39695e277113681e7a1bf"
+      "sha256": "c6792a40b4eabb1e46ed6ef08b14397f6aa43b1e705afb01f987e571ec6b1f74"
+    },
+    {
+      "module": "glm_query_capture",
+      "source": "drift/serving/glm_query_capture.py",
+      "sha256": "73c99990a130b7a29412cf4de39240b5980d68920430338345a0cefe6d089969"
     },
     {
       "module": "glm_rank_failure",
       "source": "drift/serving/glm_rank_failure.py",
       "sha256": "5873f4a0f22c0e1622117c4e60af09d009ca2bbd69839abf0501eed30db4c86a"
+    },
+    {
+      "module": "glm_state_compute",
+      "source": "drift/serving/glm_state_compute.py",
+      "sha256": "4b97f32a53e227b36575642161f1dd61cea7099d3700eb2c7f958c7e61b483f0"
+    },
+    {
+      "module": "glm_state_inject",
+      "source": "drift/serving/glm_state_inject.py",
+      "sha256": "3a5c378c5caf99d9800f6d03997dcd98ebbcbd948ead03f50b1f3cd693be75f1"
     },
     {
       "module": "glm_worker_save",
@@ -56,7 +76,7 @@
     {
       "module": "live_receiver_glm",
       "source": "drift/serving/live_receiver_glm.py",
-      "sha256": "24f4959238eef8f5baeabeb7ad35c3e5222217f5205c1f803b7d1d8ccc5fb0d4"
+      "sha256": "6efe6a2aad4f86b2ea81b8d694ae3bbe6afb053d0af36ddd15bcd078e44dc0c3"
     },
     {
       "module": "live_tap_capture",

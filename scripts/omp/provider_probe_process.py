@@ -14,6 +14,7 @@ class ProbeProcess:
         self.process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.PIPE if rpc else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         self.counts = {}; self.output_limit = False; self.terminated = False
         self.error_codes = set(); self.abort_ack = False; self.agent_end = False; self.rpc = rpc
+        self.responses = {}
         self.threads = [threading.Thread(target=self._consume, args=(name, stream), daemon=True) for name, stream in [('stdout', self.process.stdout), ('stderr', self.process.stderr)]]
         for thread in self.threads: thread.start()
 
@@ -31,6 +32,8 @@ class ProbeProcess:
                     try: value = json.loads(line)
                     except (ValueError, UnicodeDecodeError): continue
                     if not isinstance(value, dict): continue
+                    if value.get('type') == 'response' and isinstance(value.get('id'), str):
+                        self.responses[value['id']] = value.get('success') is True
                     if value.get('type') == 'agent_end': self.agent_end = True
                     if value.get('type') == 'response' and value.get('command') == 'abort' and value.get('id') == 'probe-abort' and value.get('success') is True: self.abort_ack = True
         self.counts[name] = dict(bytes=size, sha256=digest.hexdigest()); stream.close()

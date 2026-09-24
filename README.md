@@ -150,7 +150,7 @@ omp plugin link "$PWD/plugin/omp-drift"
 
 That adds the command without modifying Duo's source. Configure the local service and authentication described in the [plugin guide](plugin/omp-drift/README.md) before using `/drift start --reference`.
 
-The command currently controls the reference service. It does **not** turn an existing Duo room into a native KV-linked pair. The persistent native coordinator and provider hook have passed a bounded, three-epoch parent/subagent check with GLM and Qwen, plus cancellation after a confirmed exchange. They still require operator-owned worker startup and pinned private profiles; automatic Duo room startup and a text/Drift mode selector are not supported. See [native exchange setup and evidence](docs/guides/NATIVE_OWNER_EXCHANGE.md).
+The default command controls the reference service. A separately configured `/drift subagent enable` now selects a pinned KV-only pair with restricted task admission and repeated exchange boundaries; see the [subagent setup and qualification limits](docs/guides/DRIFT_SUBAGENTS.md). Its installed-OMP fixture passes, but native qualification of this new command remains **BLOCKED**. It does not turn an existing Duo room into a KV-linked pair or provision MCDMA/inference servers. Earlier native three-epoch and cancellation results used a different control policy; see [native exchange evidence](docs/guides/NATIVE_OWNER_EXCHANGE.md).
 
 ## Add Drift to another workflow
 

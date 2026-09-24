@@ -158,3 +158,12 @@ def tap_slots(cache: Sequence[Any], layers: Sequence[int], rope: Rope | None, sl
         mx.eval(k, v)
         out[layer] = (np.array(k)[0].transpose(1, 0, 2), np.array(v)[0].transpose(1, 0, 2))
     return out
+
+
+def selector_block_reset(layer_cache: Any):
+    """The call that drops a QSA cache's derived block bank after its raw selector positions change, or None."""
+    for name in ("clear_index_blocks", "_invalidate_pooled_indexer"):     # stock mlx-vlm 0.7.1 index_block_keys, then the oMLX 0.7.0.dev2 pooled bank
+        reset = getattr(layer_cache, name, None)
+        if callable(reset):
+            return reset
+    return None

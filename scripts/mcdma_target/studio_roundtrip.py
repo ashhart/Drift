@@ -3,16 +3,18 @@ wait for both acknowledgements. Measures per rank and for the pair. CPU only; op
 import argparse, ctypes, importlib.util, json, os, statistics, sys, threading, time, zlib
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from drift.serving.mcdma_links import parse_links
 from drift.serving.mcdma_mailbox import RETRIES, Writer
 parser = argparse.ArgumentParser()
 parser.add_argument("--build", type=Path, required=True)
 parser.add_argument("--rounds", type=int, default=100)
 parser.add_argument("--sizes", type=int, nargs="+", default=[4096, 94208, 188416, 1048576])
 parser.add_argument("--out", type=Path, required=True)
+parser.add_argument("--links", required=True, help="MCDMA legs to each rank as target/source, head first")
 args = parser.parse_args()
 spec = importlib.util.spec_from_file_location("drift_mcdma", args.build / "mcdma.py"); mcdma = importlib.util.module_from_spec(spec); spec.loader.exec_module(mcdma)
 mcdma._load = lambda: ctypes.CDLL(str(args.build / "libmcdma.dylib"))
-LEGS = {"spark-a.invalid": ("192.0.2.1", "192.0.2.40"), "spark-b.invalid": ("198.51.100.1", "198.51.100.40")}
+LEGS = parse_links(args.links)
 conns = {rank: mcdma.open(peer, src=src) for rank, (peer, src) in LEGS.items()}
 writers = {rank: Writer(conn) for rank, conn in conns.items()}
 report = {"sessions": {r: w.session for r, w in writers.items()}, "region_mib": {r: c.region_len >> 20 for r, c in conns.items()}, "sizes": {}, "sent": []}

@@ -8,11 +8,11 @@ import { parseIntegerArgument } from "./util";
 
 export { connectionSettings } from "./connection";
 
-const ACTIONS = ["start", "assign", "tick", "pause", "status", "checkpoint", "mail", "complete", "abort", "stop"] as const;
+const ACTIONS = ["start", "assign", "tick", "pause", "status", "checkpoint", "mail", "complete", "abort", "stop", "subagent"] as const;
 type Action = (typeof ACTIONS)[number];
 const FREE_TEXT_ACTIONS: ReadonlySet<Action> = new Set<Action>(["start", "assign"]);
 
-export function registerDriftCommand(api: OmpExtensionApi): void {
+export function registerDriftCommand(api: OmpExtensionApi, subagent?: (args: string, context: CommandContext) => Promise<void>): void {
 	api.registerCommand("drift", {
 		description: "Drive a Drift run over the local worker service: start, assign, tick, pause, status, checkpoint, mail, complete, abort, stop",
 		getArgumentCompletions: prefix => {
@@ -39,6 +39,10 @@ export function registerDriftCommand(api: OmpExtensionApi): void {
 			}
 
 			switch (action) {
+				case "subagent":
+					if (subagent) await subagent(rest, context);
+					else context.ui.notify("Native Drift needs pinned worker, boundary and exchange profiles; see docs/guides/DRIFT_SUBAGENTS.md.", "error");
+					return;
 				case "start":
 					await startRun(api, context, rest);
 					return;

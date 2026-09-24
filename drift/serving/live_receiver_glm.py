@@ -78,8 +78,12 @@ def _apply(connector, step, state):
     import torch
     try:
         from glm_cache_commit import commit_cache
+        from glm_state_compute import build_state, load_inputs
+        from glm_state_inject import write_state
     except ImportError:
         from drift.serving.glm_cache_commit import commit_cache
+        from drift.serving.glm_state_compute import build_state, load_inputs
+        from drift.serving.glm_state_inject import write_state
     targets = connector._live_targets()
     on_gpu = any(part.is_cuda for part in targets.values())
     for seq in step.apply:
@@ -87,6 +91,9 @@ def _apply(connector, step, state):
             raise ValueError('live rank publication sequence mismatch')
         rows, staged, digest = prepare_write(connector, step, state, targets, seq)
         commit_cache(staged, PACKED)
+        if seq == 0 and getattr(step, 'state_blob', ''):
+            advance = (lambda: build_state(connector, step, load_inputs(connector, step))) if getattr(step, 'state_rows', False) else None
+            write_state(connector, step, advance)                 # with the first memory, before its receipt
         state['filled'] += rows
         acknowledge(connector, step.name, seq, rows, digest)
         state['next_sequence'] = seq + 1

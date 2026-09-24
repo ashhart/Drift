@@ -25,7 +25,11 @@ for key, path in frozen["artifacts"].items():
 tok = Tokenizer.from_file("local/tok/glm/tokenizer.json")
 passages = []
 for line in args.passages.read_text().splitlines():
-    r = json.loads(line); facts = {f["kind"]: f["value"] for f in r["facts"]}
+    r = json.loads(line)
+    if "questions" in r:                                                      # explicit questions: diagnostics outside Test A
+        passages.append({"id": passage_id(r["text"]), "text": r["text"], "questions": r["questions"]})
+        continue
+    facts = {f["kind"]: f["value"] for f in r["facts"]}
     start = len(passages) % len(PRIORITY)
     kinds = [k for k in PRIORITY[start:] + PRIORITY[:start] if k in facts][:2]
     if len(kinds) == 2:
@@ -55,7 +59,7 @@ for a in range(0, len(todo), args.chunk):
     out = sh("ssh", SPARK, f"/root/drift-live/spark_run.sh spark_export_glm.py --ids /root/drift-live/runs/{run}/ids.json")
     remote = {json.loads(l)["id"]: json.loads(l) for l in out.splitlines() if l.startswith("{")}
     exports += list(remote.values())
-    jobs = [{"id": p["id"], "peer": "spark-a.invalid", "remote": remote[p["id"]]["remote"], "text": p["text"], "questions": p["questions"]} for p in chunk]
+    jobs = [{"id": p["id"], "peer": SPARK, "remote": remote[p["id"]]["remote"], "text": p["text"], "questions": p["questions"]} for p in chunk]
     subprocess.run(["ssh", STUDIO, f"cat > {STUDIO_DIR}/out/{run}/jobs_{a}.json"], input=json.dumps(jobs), text=True, check=True)
     worker.stdin.write(f"out/{run}/jobs_{a}.json\n"); worker.stdin.flush()
     reply = worker.stdout.readline()

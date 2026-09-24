@@ -1,8 +1,20 @@
 # OMP Drift
 
-This plugin controls the local reference worker service inside OMP through typed commands and a status board. It does not connect OMP or Duo to the live GLM/Qwen workers. Live startup is BLOCKED; `/drift start --reference` explicitly opts into the reference lifecycle demonstration. The board and model-turn status identify this limitation.
+This plugin controls the local reference worker service inside OMP through typed commands and a status board. `/drift start --reference` explicitly selects that demonstration; a separately configured KV-only subagent entry point is described below, with native qualification still BLOCKED.
 
-Duo remains the separate text-based comparison workflow. The model runtime owns private caches and translated memory; MCDMA is a possible future transport backend, not that runtime. The remaining integration work is recorded in `docs/reference/omp/OMP_LIVE_INTEGRATION.md` in the Drift repository.
+Duo remains the separate text-based comparison workflow. The model runtime owns private caches and translated memory; the separate native exchange path uses MCDMA, but this command entry point does not launch it. The remaining integration work is recorded in `docs/reference/omp/OMP_LIVE_INTEGRATION.md` in the Drift repository.
+
+## Promptless subagents
+
+`/drift subagent enable`, `status` and `disable` are separate from `/duo` and its text-based room. They require owner-pinned workers, boundary and exchange profiles, a running coordinator and fresh mailbox consumers; selecting a model is not enough.
+
+The first prerequisite is implemented in the experimental worker provider: an owner-pinned `communication_mode: "kv_only"` with `memory_mode: "linked"`, `experimental_multi_turn: true` and `session_binding: "fixed"`. Both workers must select that mode. The provider requires pinned exchange and parking configurations, and the parking configuration must use version 2. Existing `text_and_artifacts` runs remain a separate, explicitly text-enabled mode.
+
+In this restricted mode, each worker receives one own setup prompt and an immutable system prompt. Its only tool is `drift_sync {}`, which returns the fixed control receipt `ready` after the exchange gate releases it. The provider rejects peer developer messages, additional user prompts, arbitrary tool results, tool arguments and other tools before they reach the worker or tool dispatcher. The parent waits for the child even at the first sync; every sync requires a fresh exchange, and both workers must settle before completion. Failure poisons the route instead of falling back to text.
+
+The restricted wrapper admits one empty-argument `task`, repeated `drift_sync` calls and an empty-argument child `yield`; it delegates only fixed owner controls and discards returned text. Paired receipt checking now releases epochs automatically, and completed routes block OMP's asynchronous text follow-up before it reaches the provider. The installed-OMP synthetic command check passes, not native GPUs/RDMA qualification. Follow the [owner setup guide](../../docs/guides/DRIFT_SUBAGENTS.md); stock Hub traffic, arbitrary file tools and nested subagents remain unsupported.
+
+"Promptless" describes communication between models. It does not mean that local setup, tool receipts or the user's original task contain no text, and a `kv_only` flag alone does not attest to the coordinator's transport or operating-system isolation.
 
 The service is a separate Python process, started from the Drift project (`python -m drift.runtime.service`, documented there). It speaks the protocol in `docs/reference/service/SERVICE_PROTOCOL.md`: newline-delimited JSON over TCP on `127.0.0.1`, every line carrying an `auth` field that is the hex HMAC-SHA256 of the message's canonical JSON (keys sorted at every level, no whitespace, ASCII-only strings) without `auth`. Unauthenticated or malformed lines close the connection in both directions.
 

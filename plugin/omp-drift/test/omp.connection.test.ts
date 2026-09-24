@@ -122,7 +122,7 @@ describe("drift behavior", () => {
 	test("argument completions list the subcommands", () => {
 		const h = createHarness();
 		expect(h.completions("")?.map(item => item.value)).toEqual([
-			"start", "assign", "tick", "pause", "status", "checkpoint", "mail", "complete", "abort", "stop",
+			"start", "assign", "tick", "pause", "status", "checkpoint", "mail", "complete", "abort", "stop", "subagent",
 		]);
 		expect(h.completions("st")?.map(item => item.value)).toEqual(["start", "status", "stop"]);
 		expect(h.completions("tick 3")).toBeNull();

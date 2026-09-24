@@ -7,27 +7,52 @@ from tests.test_glm_prefix_reuse import connector, live, step
 from tests.test_glm_restore import Prefix, Publication, body
 
 
-def test_scheduler_cap_preserves_unlinked_and_splits_only_before_boundary():
-    from drift.serving.glm_prefill_boundary import cap_prefill
+def aligned_at(start, block):
+    """vLLM's aligned split for a chunk that is not the prompt's last: its end floors to a block boundary."""
+    return lambda count: max((start+count)//block*block-start, 0)
+
+
+def test_split_preserves_unlinked_and_stops_exactly_at_the_boundary():
+    from drift.serving.glm_prefill_boundary import split
     request = NS(kv_transfer_params=None)
-    assert cap_prefill(request, 512, 0, 64) == 512
+    assert split(request, 512, 0, 3584, aligned_at(0, 3584)) == 0              # unlinked: vLLM decides
     request.kv_transfer_params = dict(drift_session='s', drift_reserve=56,
-                                     drift_reserve_start=2, drift_prefill_boundary=128)
-    assert cap_prefill(request, 512, 0, 64) == 128
-    assert cap_prefill(request, 512, 64, 64) == 64
-    assert cap_prefill(request, 32, 0, 64) == 32
-    assert cap_prefill(request, 512, 128, 64) == 512
+                                     drift_reserve_start=2, drift_prefill_boundary=58)
+    assert split(request, 512, 0, 3584, aligned_at(0, 3584)) == 58             # the reserve's end, inside the block
+    assert split(request, 30, 0, 3584, aligned_at(0, 3584)) == 0               # cannot reach it: vLLM aligns
+    assert split(request, 512, 58, 3584, lambda count: count) == 512           # past it: vLLM decides
     request.kv_transfer_params.pop('drift_session')
     request.kv_transfer_params['drift_no_link'] = True
-    assert cap_prefill(request, 512, 0, 64) == 128
+    assert split(request, 512, 0, 3584, aligned_at(0, 3584)) == 58
 
 
-@pytest.mark.parametrize('boundary', [True, -1, 57, 129, 8192])
+def test_split_aligns_at_a_block_boundary_before_a_later_stop():
+    from drift.serving.glm_prefill_boundary import split
+    request = NS(kv_transfer_params=dict(drift_session='s', drift_reserve=3000,
+                                        drift_reserve_start=1000, drift_prefill_boundary=5000))
+    assert split(request, 7168, 0, 3584, aligned_at(0, 3584)) == 3584          # the block's state is materialized first
+    assert split(request, 7168, 3584, 3584, aligned_at(3584, 3584)) == 1416
+
+
+@pytest.mark.parametrize('boundary', [True, -1, 57, 8192])
 def test_invalid_boundary_never_clips_or_dispatches(boundary):
-    from drift.serving.glm_prefill_boundary import cap_prefill
+    from drift.serving.glm_prefill_boundary import split
     request = NS(kv_transfer_params=dict(drift_session='s', drift_reserve=56,
                                         drift_reserve_start=2, drift_prefill_boundary=boundary))
-    with pytest.raises(ValueError): cap_prefill(request, 512, 0, 64)
+    with pytest.raises(ValueError): split(request, 512, 0, 3584, aligned_at(0, 3584))
+
+
+def test_a_state_needs_the_boundary_at_the_reserve_end(connector):
+    owner, _ = connector
+    owner.on_new_request(live('a', start=2, reserve=56, prompt=300, name='x', drift_tap=False,
+                              drift_prefill_boundary=64, drift_state_blob='own-1'))
+    assert "reserve's end" in owner._live['a']['failed']
+    owner.on_new_request(live('b', start=2, reserve=56, prompt=300, name='y', drift_tap=False,
+                              drift_prefill_boundary=58, drift_state_blob='../x'))
+    assert 'must match' in owner._live['b']['failed']
+    owner.on_new_request(live('c', start=2, reserve=56, prompt=300, name='z', drift_tap=False,
+                              drift_prefill_boundary=58, drift_state_blob='own-1'))
+    assert owner._live['c']['failed'] == '' and owner._live['c']['state_blob'] == 'own-1'
 
 
 @pytest.mark.parametrize('scheduled,publication', [(129, True), (128, False)])

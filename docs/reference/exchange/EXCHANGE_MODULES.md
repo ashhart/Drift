@@ -292,7 +292,9 @@ padding and declares a `drift_prefill_boundary`. The separately deployed
 `glm_prefill_scheduler.DriftScheduler` caps initial prefill at that boundary;
 the connector refuses absent or late initial memory. Both ranks need the pinned
 connector bundle and the server must explicitly select the scheduler class.
-This is specific to the qualified aligned GLM cache, not a generic vLLM feature.
+This needs GLM's align-mode cache, not a generic vLLM feature. Since 22 September
+2026 the first chunk ends exactly at the boundary, which may be the reserve's end,
+whatever the block size; see [GLM recurrent state](../glm/GLM_RECURRENT_STATE.md).
 Snapshot-bank rebinding preserves the policy across versions. Reports distinguish
 `prefill_policy: GUARDED_REQUESTED` from proof of first-token causality: merely
 requesting this policy does not establish that a remote server honored it.

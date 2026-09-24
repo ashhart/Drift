@@ -1,0 +1,519 @@
+{
+ "names and values": {
+  "sections": {
+   "a": {
+    "x": "1",
+    "y": "2"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ],
+   [
+    "a",
+    "y",
+    2
+   ]
+  ]
+ },
+ "colon separator": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a colon before the first equals sign": {
+  "sections": {
+   "a": {
+    "x": "y = 1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "an equals sign inside the value": {
+  "sections": {
+   "a": {
+    "url": "a=b"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "url",
+    1
+   ]
+  ]
+ },
+ "a colon inside the value": {
+  "sections": {
+   "a": {
+    "x": "http://h:1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "comment lines": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    1
+   ],
+   [
+    "a",
+    "x",
+    3
+   ]
+  ]
+ },
+ "blank lines": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    1
+   ],
+   [
+    "a",
+    "x",
+    4
+   ]
+  ]
+ },
+ "continuation lines": {
+  "sections": {
+   "a": {
+    "x": "1\n2\n3"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a continuation of an empty value": {
+  "sections": {
+   "a": {
+    "x": "first\nsecond"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a tab continuation": {
+  "sections": {
+   "a": {
+    "x": "1\n2"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "an inline comment is kept by default": {
+  "sections": {
+   "a": {
+    "x": "1 # note"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "an inline comment is stripped when asked": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a semicolon comment is stripped when asked": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a continuation's comment is stripped when asked": {
+  "sections": {
+   "a": {
+    "x": "1\n2"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a header's trailing comment": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a header keeps its spaces": {
+  "sections": {
+   " a ": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    " a ",
+    null,
+    0
+   ],
+   [
+    " a ",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a header's spaces are stripped when asked": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a bracket inside a header": {
+  "sections": {
+   "a]b": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a]b",
+    null,
+    0
+   ],
+   [
+    "a]b",
+    "x",
+    1
+   ]
+  ]
+ },
+ "line indexes in sources": {
+  "sections": {
+   "a": {
+    "x": "1"
+   },
+   "b": {
+    "y": "2"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    1
+   ],
+   [
+    "a",
+    "x",
+    3
+   ],
+   [
+    "b",
+    null,
+    4
+   ],
+   [
+    "b",
+    "y",
+    5
+   ]
+  ]
+ },
+ "Windows line endings": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "empty data": {
+  "sections": {},
+  "sources": []
+ },
+ "only comments": {
+  "sections": {},
+  "sources": []
+ },
+ "names and values are stripped": {
+  "sections": {
+   "a": {
+    "x": "1"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "an unclosed header continues the value before it": {
+  "sections": {
+   "a": {
+    "x": "1\n[b"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ]
+  ]
+ },
+ "a value before any header": {
+  "error": "ParseError",
+  "lineno": 0,
+  "msg": "no section header defined"
+ },
+ "a section opened twice": {
+  "error": "ParseError",
+  "lineno": 1,
+  "msg": "duplicate section 'a'"
+ },
+ "a name defined twice": {
+  "error": "ParseError",
+  "lineno": 2,
+  "msg": "duplicate name 'x'"
+ },
+ "an empty section name": {
+  "error": "ParseError",
+  "lineno": 2,
+  "msg": "empty section name"
+ },
+ "a continuation at the start": {
+  "error": "ParseError",
+  "lineno": 0,
+  "msg": "unexpected value continuation"
+ },
+ "a continuation after a header": {
+  "error": "ParseError",
+  "lineno": 1,
+  "msg": "unexpected value continuation"
+ },
+ "a line that nothing splits": {
+  "error": "ParseError",
+  "lineno": 1,
+  "msg": "unexpected line: 'novalue'"
+ },
+ "reading errors come before section errors": {
+  "error": "ParseError",
+  "lineno": 2,
+  "msg": "unexpected line: 'bad line'"
+ },
+ "the same name in two sections": {
+  "sections": {
+   "a": {
+    "x": "1"
+   },
+   "b": {
+    "x": "2"
+   }
+  },
+  "sources": [
+   [
+    "a",
+    null,
+    0
+   ],
+   [
+    "a",
+    "x",
+    1
+   ],
+   [
+    "b",
+    null,
+    2
+   ],
+   [
+    "b",
+    "x",
+    3
+   ]
+  ]
+ }
+}

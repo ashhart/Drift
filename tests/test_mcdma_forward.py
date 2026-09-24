@@ -61,17 +61,18 @@ def drain():
         assert ACK.unpack(region.get(ACK.size, ACK_AT))[-1] != 1
 
     env = {"np": np, "io": io, "json": json, "time": time, "forward": reader,
-           "args": SimpleNamespace(session="session-test", no_forward=False, own_start=100, foreign_row_cap=100),
+           "args": SimpleNamespace(session="session-test", no_forward=False, own_start=100, foreign_row_cap=100, state_at="arrival", save_taps=None),
            "GL": GL, "QL": QL, "INDEX_DIM": 128, "fwd_used": 0,
            "own_positions": [], "generated": [], "rope": None, "append_entries": append,
            "mx": SimpleNamespace(bfloat16=None, eval=lambda _: events.append("gpu_complete")),
            "cache": {layer: SimpleNamespace(keys=None, values=None) for layer in QL},
            "foreign_bank": SimpleNamespace(positions=lambda sources, query: query - 1 - (sources[-1] - sources), remember=lambda *args: None),
-           "fwd": SimpleNamespace(read=translate)}
+           "fwd": SimpleNamespace(read=translate), "state": None, "lm": None, "pending_state": {}, "rows_fix": None}
     for node in source.body:
         if isinstance(node, ast.ImportFrom) and node.module == "drift.serving.mcdma_forward":
             exec(compile(ast.Module(body=[node], type_ignores=[]), "forward_import", "exec"), env)
-    exec(compile(ast.Module(body=[function], type_ignores=[]), "drain_forward", "exec"), env)
+    helpers = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ("advance_state", "corrected")]
+    exec(compile(ast.Module(body=[*helpers, function], type_ignores=[]), "drain_forward", "exec"), env)
     return SimpleNamespace(call=env["drain_forward"], env=env, writer=writer, region=region, events=events)
 
 
@@ -267,3 +268,68 @@ def test_completion_deadline_includes_missing_forward_marker():
 def test_no_link_still_requires_controller_completion():
     from drift.serving.mcdma_completion import wait_for_completion
     assert wait_for_completion(io.StringIO("peer_done\n"), lambda: [], lambda: True, timeout_s=0.2) == []
+
+
+def test_a_state_translator_advances_each_linear_layer_before_the_ack(drain):
+    rows = []
+
+    class Linear:
+        def __init__(self, index):
+            self.index = index
+
+        def linear_attn(self, inputs, mask=None, cache=None):
+            assert mask is None and cache is drain.env["cache"][self.index] and not drain.writer.acknowledged()
+            rows.append((self.index, inputs.shape))
+            drain.events.append(f"advance{self.index}")
+
+    width = len(GL) * 512
+    drain.env["state"] = {"mean": np.zeros(width, np.float32), "basis": np.eye(width, 8, dtype=np.float32),
+                          "layers": {0: (np.ones((8, 6), np.float32), np.zeros(6, np.float32), np.ones(6, np.float32)),
+                                     1: (np.ones((8, 6), np.float32), np.zeros(6, np.float32), np.ones(6, np.float32))}}
+    drain.env["cache"].update({0: [np.zeros(1), np.zeros(1)], 1: [np.zeros(1), np.zeros(1)]})
+    drain.env["lm"] = SimpleNamespace(model=SimpleNamespace(layers={0: Linear(0), 1: Linear(1)}))
+    drain.env["mx"] = SimpleNamespace(bfloat16="bf16", eval=lambda _: drain.events.append("gpu_complete"),
+                                      array=lambda value: SimpleNamespace(astype=lambda dtype: value))
+    drain.writer.publish(publication())
+    result = drain.call()
+    assert drain.events == ["translate", "append", "gpu_complete", "advance0", "advance1", "gpu_complete"]
+    assert [index for index, _ in rows] == [0, 1] and rows[0][1][0] == 1 and rows[0][1][2] == 6
+    assert result[0]["state_advanced"] is True and drain.writer.acknowledged()
+
+
+def test_followup_mode_holds_the_translated_inputs_instead_of_advancing(drain):
+    width = len(GL) * 512
+    drain.env["args"].state_at = "followup"
+    drain.env["state"] = {"mean": np.zeros(width, np.float32), "basis": np.eye(width, 8, dtype=np.float32),
+                          "layers": {0: (np.ones((8, 6), np.float32), np.zeros(6, np.float32), np.ones(6, np.float32))}}
+    drain.env["lm"] = SimpleNamespace(model=SimpleNamespace(layers={0: None}))                 # any advance would fail here
+    drain.writer.publish(publication())
+    drain.call()
+    held = drain.env["pending_state"][0]
+    assert len(held) == 1 and held[0].shape == (len(held[0]), 6) and drain.writer.acknowledged()
+
+
+def test_a_saved_tap_holds_the_applied_latents_before_the_ack(drain, tmp_path):
+    drain.env["args"].save_taps = tmp_path / "taps"
+    latents = {f"l{layer}": np.full((2, 512), layer, np.float16) for layer in GL}
+    drain.writer.publish(publication(arrays=latents))
+    drain.call()
+    with np.load(tmp_path / "taps" / "000000.npz") as saved:
+        assert (int(saved["start"]), int(saved["stop"])) == (20, 22)
+        assert all(np.array_equal(saved[f"l{layer}"], latents[f"l{layer}"]) for layer in GL)
+    assert drain.writer.acknowledged()
+
+
+def test_a_rows_correction_is_added_before_the_append(drain):
+    appended = []
+    drain.env["append_entries"] = lambda cache, entries, *args, **kwargs: appended.append(entries)
+    width, rank = len(GL) * 512, 2
+    up = np.zeros((rank, len(QL) * 1024), np.float32)
+    up[0, 1024 + 512] = 1.0                                              # the second layer's first value channel
+    drain.env["rows_fix"] = {"mean": np.zeros(width, np.float32), "basis": np.eye(width, 4, dtype=np.float32),
+                             "down": np.eye(4, rank, dtype=np.float32), "up": up}
+    drain.writer.publish(publication(arrays={f"l{layer}": np.full((2, 512), 3.0, np.float16) for layer in GL}))
+    drain.call()
+    keys, values = appended[0][QL[1]]
+    assert np.allclose(values[:, 0, 0], 1 + 3.0) and np.allclose(values[:, 0, 1:], 1) and np.allclose(keys, 1)
+    assert np.allclose(appended[0][QL[0]][1], 1) and drain.writer.acknowledged()

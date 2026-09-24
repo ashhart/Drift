@@ -13,6 +13,8 @@ parser.add_argument("--rows", type=int, required=True, help="rows the publicatio
 parser.add_argument("--max-new", type=int, default=64)
 parser.add_argument("--tap", action="store_true", help="continuous mode: export decode-time taps, no tail alignment, per-chunk timestamps from this host's clock")
 parser.add_argument("--placeholder-id", type=int, default=198)
+parser.add_argument("--causal", action="store_true", help="wait for the first publication, then stop the prefill at the reserve's end so the own input reads the memory")
+parser.add_argument("--causal-wait", type=float, default=90, help="seconds to wait for the first publication before abandoning")
 parser.add_argument("--base", default="http://127.0.0.1:8888")
 parser.add_argument("--model", default="GLM-5.3-Flash-EXL3")
 args = parser.parse_args()
@@ -43,11 +45,21 @@ reserve += (-(len(head) + reserve + len(tail))) % 64                            
 prompt = head + [args.placeholder_id] * reserve + tail
 body = {"model": args.model, "prompt": prompt, "max_tokens": args.max_new, "temperature": 0, "stream": True, "stream_options": {"include_usage": True}, "cache_salt": f"drift:{uuid.uuid4().hex}", "vllm_xargs": {"skip_writing_prefix_cache": 1},
         "kv_transfer_params": {"drift_session": args.session, "drift_reserve": reserve, "drift_reserve_start": len(head), "drift_tap": bool(args.tap)}}
+if args.causal:
+    body["kv_transfer_params"]["drift_prefill_boundary"] = len(head) + reserve        # the Drift scheduler stops here, at the reserve's end
 print(json.dumps({"ready": True, "prompt_tokens": len(prompt), "span_start": len(head), "reserve": reserve, "own_tokens_after_span": len(tail)}), flush=True)
 if sys.stdin.readline().strip() != "go":                                        # a closed control channel must NOT start the request
     for kind in ("tp-live-in", "tp-live-out"):
         shutil.rmtree(ROOT / kind / args.session, ignore_errors=True)
     raise SystemExit("no go: session abandoned before any request was sent")
+first_publication = ROOT / "tp-live-in" / args.session / "000000.npz"            # released on the head only after every rank staged it
+deadline = time.monotonic() + args.causal_wait
+while args.causal and not first_publication.exists():
+    if time.monotonic() > deadline:
+        for kind in ("tp-live-in", "tp-live-out"):
+            shutil.rmtree(ROOT / kind / args.session, ignore_errors=True)
+        raise SystemExit("no first publication: causal session abandoned before any request was sent")
+    time.sleep(0.005)
 t0, first, pieces, chunks, wall0 = time.time(), None, [], [], time.time_ns()
 completion = CompletionStream()
 with post("/v1/completions", body) as resp:

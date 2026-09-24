@@ -8,6 +8,18 @@ checks and transport timings.
 - [Evaluation admission](EVALUATION_READINESS.md): plan completeness is not permission or a passing experiment.
 - [Duo comparison design](DUO_DRIFT_COMPARISON.md): frozen-baseline and declared-channel requirements.
 - [Project fixture](DUO_DRIFT_PROJECT.md): the proposed disposable comparison task, not a qualified result.
+- [Receiver prefill cost](PREFILL_COST_RESULT.md): SUPPORTED, memory prefill 4.59 times cheaper with accuracy held.
+- [Reverse recall confirmation](REVERSE_RECALL_CONFIRMATION.md): PARTLY, 16 of 24 against an 18 bar.
+- [Joint code task](JOINT_CODE_TASK.md): NOT SUPPORTED, identifiers did not cross whole.
+- [Appointment selection ablation](APPOINTMENT_SELECTION_ABLATION.md) and [forward follow-up diagnostic](FORWARD_FOLLOWUP_DIAGNOSTIC.md): exploratory.
+- [Held-out protocol](HELD_OUT_PROTOCOL.md): owner-run hidden names and seed.
+- [GLM own-cache gate](GLM_OWN_STATE_GATE.md): PASSED, own rows plus own recurrent state answer as text does.
+- [DeepSeek V4 Drift gate](DSV4_DRIFT_GATE.md): PASSED, its own compressed rows answer 24 of 24 against native text's 23.
+- [Qwen own-cache gate](QWEN_OWN_STATE_GATE.md): PASSED, 21 of 24 outputs identical to text with its own state, 12 without.
+- [Causal loop development runs](CAUSAL_LOOP_DEVELOPMENT.md): exploratory, GLM 12 of 12 once it reads its question after the memory.
+- [Translated recurrent state development results](TRANSLATED_STATE_DEVELOPMENT.md): exploratory, Qwen's translated state lifts GLM from 20 to 24 of 24; the forward live gap sits in GLM's live latents, not in the loop.
+- [DeepSeek V4 translators](DSV4_TRANSLATOR_DEVELOPMENT.md): exploratory, DeepSeek's cache pages decode; linear translators from its grouped entries answer 2 to 3 of 20.
+- [Causal recall confirmation](CAUSAL_RECALL_CONFIRMATION.md) and [joint code causal confirmation](JOINT_CODE_CAUSAL_CONFIRMATION.md): preregistered, with text arms.
 
 Historical scores and failed improvement criteria remain unchanged. Do not
 publish raw private activations, answer keys or scorer output, or let evaluated

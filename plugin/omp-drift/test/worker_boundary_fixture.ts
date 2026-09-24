@@ -20,7 +20,7 @@ export class Transport implements WorkerTransport {
     this.messages.push(message);
     queueMicrotask(() => {
       if (message.op === "stream") { this.active = message; return; }
-      const payload = message.op === "open" ? { model_id: identity.model_id, model_sha256: identity.model_sha256, translator_sha256: identity.translator_sha256, limits, backend: "fixture", capabilities: { native_state: "fixture", tool_calls: true, cancellation: true } } : {};
+      const payload = message.op === "open" ? { model_id: identity.model_id, model_sha256: identity.model_sha256, translator_sha256: identity.translator_sha256, limits, backend: "fixture", capabilities: { native_state: "fixture", tool_calls: true, cancellation: true } } : message.op === "tool_result" ? { call_id: message.payload.call_id } : {};
       this.listener({ ...message, op: message.op === "open" ? "opened" : message.op === "close" ? "closed" : message.op + "_ack", payload });
     });
   }

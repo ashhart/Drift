@@ -38,7 +38,7 @@ def test_actual_step_rephases_all_retained_rows_before_model_call():
         events.append(("model", kwargs["position_ids"].tolist()))
         return SimpleNamespace(logits=np.zeros((1, ids.shape[-1], 3)))
 
-    env = {"np": np, "args": SimpleNamespace(own_start=2048),
+    env = {"np": np, "args": SimpleNamespace(own_start=2048), "position_gap": 0,
            "own_positions": list(range(2048, 2317)), "own_slots": [], "slots_now": lambda: 572,
            "mx": SimpleNamespace(arange=np.arange, array=np.array, int32=np.int32, eval=lambda _: None),
            "lm": model, "cache": object(), "rope": object(),
@@ -212,3 +212,71 @@ def test_native_mlx_qsa_cache_rephasing_preserves_other_state():
             np.testing.assert_array_equal(np.array(current.index_position_ids)[:, [0, 4, 5]], before[layer][3][:, [0, 4, 5]])
             assert current.index_block_keys is None and current.index_block_ratio is None
             assert current.offset == 8
+
+
+class PooledCache:
+    """The oMLX 0.7.0.dev2 layout: no clear_index_blocks, and a pooled block bank that its invalidator drops."""
+    def __init__(self, offset=8):
+        tiny = TinyCache(offset)
+        self.offset, self.keys, self.values = tiny.offset, tiny.keys, tiny.values
+        self.index_keys, self.index_position_ids = tiny.index_keys, tiny.index_position_ids
+        self._pooled_index_keys, self._pooled_index_offset = np.ones((1, 2, 4)), 2
+
+    def _invalidate_pooled_indexer(self):
+        self._pooled_index_keys, self._pooled_index_offset = None, 0
+
+
+class BareCache(PooledCache):
+    _invalidate_pooled_indexer = None
+
+
+def test_rephase_drops_the_deployed_pooled_block_bank(numeric_backend):
+    bank = ForeignPositionBank((3, 7), 2, heads=2, head_dim=8)
+    bank.remember(entries(2), np.array([5, 6]), 1)
+    cache = {layer: PooledCache() for layer in (3, 7)}
+    bank.rephase(cache, Rope(10000, 8), 40)
+    for current in cache.values():
+        assert current._pooled_index_keys is None and current._pooled_index_offset == 0
+        np.testing.assert_array_equal(current.index_position_ids[:, bank.slots], np.array([[38, 39]]))
+    assert bank.rephase_calls == 1 and not bank.poisoned
+
+
+def test_a_receiver_without_a_block_reset_is_refused_before_any_change(numeric_backend):
+    bank = ForeignPositionBank((3, 7), 2, heads=2, head_dim=8)
+    bank.remember(entries(2), np.array([5, 6]), 1)
+    cache = {3: PooledCache(), 7: BareCache()}
+    before = {layer: (c.keys.copy(), c.index_position_ids.copy()) for layer, c in cache.items()}
+    with pytest.raises(RuntimeError, match="cannot invalidate selector blocks"):
+        bank.rephase(cache, Rope(10000, 8), 40)
+    assert bank.poisoned and cache[3]._pooled_index_keys is not None
+    for layer, current in cache.items():
+        np.testing.assert_array_equal(current.keys, before[layer][0])
+        np.testing.assert_array_equal(current.index_position_ids, before[layer][1])
+
+
+def test_native_rephase_on_the_deployed_qsa_cache():
+    pytest.importorskip("mlx.core")
+    pytest.importorskip("omlx")
+    from scripts.live.studio_rephase_check import check
+    verdict = check()
+    assert verdict["passed"], verdict
+
+
+def test_a_position_gap_moves_the_step_and_its_rephase_origin_together():
+    source = ast.parse((ROOT / "scripts/live/studio_mcdma_loop.py").read_text())
+    step = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == "step")
+    events = []
+
+    def model(ids, **kwargs):
+        events.append(("model", kwargs["position_ids"].tolist()))
+        return SimpleNamespace(logits=np.zeros((1, ids.shape[-1], 3)))
+
+    env = {"np": np, "args": SimpleNamespace(own_start=2048), "position_gap": 300,
+           "own_positions": list(range(2048, 2317)), "own_slots": [], "slots_now": lambda: 572,
+           "mx": SimpleNamespace(arange=np.arange, array=np.array, int32=np.int32, eval=lambda _: None),
+           "lm": model, "cache": object(), "rope": object(),
+           "foreign_bank": SimpleNamespace(rephase=lambda cache, rope, start: events.append(("rephase", start)))}
+    exec(compile(ast.Module(body=[step], type_ignores=[]), "actual_step", "exec"), env)
+    env["step"]([1, 2])
+    assert events == [("rephase", 2617), ("model", [[2617, 2618]])]         # own positions resume after GLM's block
+    assert env["own_positions"][-2:] == [2617, 2618]

@@ -2,10 +2,18 @@ import { beforeWorkerDispatch, WorkerToolTail, type BeforeToolDispatch } from ".
 import { WorkerContext, type OwnContext } from "./worker_context";
 import { WorkerMapping, type EventSink } from "./worker_mapping";
 import type { WorkerClient } from "./worker_client";
+import { kvBoundary, validateKvContext } from "./worker_kv_policy";
+import { fail } from "./worker_protocol";
+import { lifecycleBoundary, type KvRole } from "./worker_kv_lifecycle";
 
 const CLOSE_GRACE_MS = 1000;
 
-export function workerProvider<T extends EventSink>(client: WorkerClient, createStream: () => T, lifecycle: { closeOnStop?: boolean; allowSystemUpdates?: boolean; allowTextDuo?: boolean; closeGraceMs?: number; beforeToolDispatch?: BeforeToolDispatch } = {}) {
+export function workerProvider<T extends EventSink>(client: WorkerClient, createStream: () => T, lifecycle: { closeOnStop?: boolean; allowSystemUpdates?: boolean; allowTextDuo?: boolean; kvOnly?: boolean; kvRole?: KvRole; closeGraceMs?: number; beforeToolDispatch?: BeforeToolDispatch } = {}) {
+  if (lifecycle.kvRole && (!lifecycle.kvOnly || !["parent", "child"].includes(lifecycle.kvRole))) fail("CAPABILITY");
+  if (lifecycle.kvOnly) {
+    if (!lifecycle.beforeToolDispatch || lifecycle.allowTextDuo || lifecycle.allowSystemUpdates) fail("CAPABILITY");
+    lifecycle = { ...lifecycle, beforeToolDispatch: lifecycle.kvRole ? lifecycleBoundary(lifecycle.beforeToolDispatch, lifecycle.kvRole) : kvBoundary(lifecycle.beforeToolDispatch) };
+  }
   const contextState = new WorkerContext(lifecycle.allowSystemUpdates, lifecycle.allowTextDuo);
   // A cancelled or rejected turn still owes the worker an ordered close before the transport dies.
   const settle = async (): Promise<void> => {
@@ -27,6 +35,7 @@ export function workerProvider<T extends EventSink>(client: WorkerClient, create
       const cancel = () => { cancellation = client.cancel(); cancellation.catch(() => {}); };
       try {
         if (model.id !== client.identity.model_id || options?.signal?.aborted) throw new Error("DRIFT_WORKER_CONTEXT");
+        if (lifecycle.kvOnly) validateKvContext(context, lifecycle.kvRole);
         await contextState.ingest(client, context);
         if (options?.signal?.aborted) throw new Error("DRIFT_WORKER_CANCELLED");
         phase = "stream";

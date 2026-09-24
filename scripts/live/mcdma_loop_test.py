@@ -2,7 +2,8 @@
 import argparse, json, shlex, statistics, sys, uuid
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from livelib import OMLX_PY, SPARK, SPARK_PEERS, STUDIO
+from livelib import MCDMA_LINKS, OMLX_PY, SPARK, SPARK_PEERS, STUDIO
+from drift.serving.mcdma_links import HEAD, parse_links
 from loop_processes import LoopProcesses, SSH_OPTIONS
 
 parser = argparse.ArgumentParser()
@@ -22,12 +23,24 @@ parser.add_argument("--publish-text")
 parser.add_argument("--prompt-only", action="store_true")
 parser.add_argument("--followup")
 parser.add_argument("--no-forward", action="store_true")
+parser.add_argument("--causal", action="store_true", help="GLM waits for the first publication and reads its own input after it")
 parser.add_argument("--wall-seconds", type=float, default=600)
 parser.add_argument("--startup-seconds", type=float, default=60)
 parser.add_argument("--reverse-artifact", type=Path, default=Path("local/live/stacked3_rev.npz"))
+parser.add_argument("--forward-state", help="GLM-to-Qwen state translator, a path on the Studio under drift-frontier; Qwen then advances its recurrent layers with every tap")
+parser.add_argument("--save-taps", action="store_true", help="the Studio keeps GLM's forward taps under the session's folder, for offline replays")
+parser.add_argument("--forward-rows-correction", help="a trained rows correction on the Studio, relative to drift-frontier")
 args = parser.parse_args()
 if not args.reverse_artifact.is_file():
     parser.error("--reverse-artifact must name an existing translator file")
+for option, value in (("--forward-state", args.forward_state), ("--forward-rows-correction", args.forward_rows_correction)):
+    if value is not None and (value.startswith("/") or ".." in Path(value).parts):
+        parser.error(f"{option} must be a relative path inside the Studio's drift-frontier")
+if not args.no_link:
+    try:
+        parse_links(MCDMA_LINKS)
+    except ValueError as error:
+        parser.error(f"DRIFT_MCDMA_LINKS: {error}")
 args.out.mkdir(parents=True, exist_ok=False); session = f"loop-{uuid.uuid4().hex}"; hosts = (SPARK, *SPARK_PEERS)
 extra = (f"--publish-text {shlex.quote(args.publish_text)}" if args.publish_text else "") + (f" --followup {shlex.quote(args.followup)}" if args.followup else "")
 with LoopProcesses(session, args.wall_seconds, args.startup_seconds) as owned:
@@ -35,6 +48,9 @@ with LoopProcesses(session, args.wall_seconds, args.startup_seconds) as owned:
         owned.run("scp", "-q", *SSH_OPTIONS, "drift/serving/mcdma_mailbox.py", "scripts/mcdma_target/spark_bridge.py", "scripts/mcdma_target/npz_tile.py", "scripts/mcdma_target/spark_glm_session.py", "scripts/mcdma_target/glm_completion_sse.py", f"{host}:/root/drift-live/mcdma-target/")
     owned.run("rsync", "-a", "-e", shlex.join(["ssh", *SSH_OPTIONS]), "scripts", "drift", f"{STUDIO}:drift-frontier/")
     owned.run("rsync", "-a", "-e", shlex.join(["ssh", *SSH_OPTIONS]), str(args.reverse_artifact.resolve()), f"{STUDIO}:drift-frontier/local/live/stacked3_rev.npz")
+    for trained in (args.forward_state, args.forward_rows_correction):
+        if trained is not None:
+            owned.run("ssh", *SSH_OPTIONS, STUDIO, f"test -f drift-frontier/{shlex.quote(trained)}")                  # trained on the Studio; never copied
     owned.run("ssh", *SSH_OPTIONS, SPARK, f"cat > /root/drift-live/mcdma-target/{session}.messages.json", input=args.glm_messages.read_text())
     owned.run("ssh", *SSH_OPTIONS, STUDIO, f"mkdir -p drift-frontier/out/{session} && cat > drift-frontier/out/{session}/messages.json", input=args.qwen_messages.read_text())
     bridges = []
@@ -46,10 +62,10 @@ with LoopProcesses(session, args.wall_seconds, args.startup_seconds) as owned:
             if event.get("rank") != rank or not event.get("session"):
                 raise RuntimeError("bridge did not acknowledge startup")
     qwen = owned.spawn(STUDIO, f"cd ~/drift-frontier && {OMLX_PY} scripts/live/studio_mcdma_loop.py --session {session} --messages out/{session}/messages.json --epoch-tokens {args.epoch_tokens} "
-                             f"--max-new {args.qwen_max_new} --copies {args.copies} --glm-reserve {args.reserve} {'--no-link' if args.no_link else ''} {'--sync-confirm' if args.sync_confirm else ''} {'--no-reverse' if args.no_reverse else ''} {'--no-forward' if args.no_forward else ''} {'--prompt-only' if args.prompt_only else ''} {f'--prompt-copies {args.prompt_copies}' if args.prompt_copies else ''} {extra} --out out/{session}/qwen.json 2>out/{session}/worker.log")
+                             f"--max-new {args.qwen_max_new} --copies {args.copies} --glm-reserve {args.reserve} --links {shlex.quote(MCDMA_LINKS)} {'--no-link' if args.no_link else ''} {'--sync-confirm' if args.sync_confirm else ''} {'--no-reverse' if args.no_reverse else ''} {'--no-forward' if args.no_forward else ''} {'--prompt-only' if args.prompt_only else ''} {f'--prompt-copies {args.prompt_copies}' if args.prompt_copies else ''} {f'--state-artifact {shlex.quote(args.forward_state)} --followup-block' if args.forward_state is not None and not args.no_link else ''} {f'--save-taps out/{session}/taps' if args.save_taps else ''} {f'--rows-correction {shlex.quote(args.forward_rows_correction)}' if args.forward_rows_correction and not args.no_link else ''} {extra} --out out/{session}/qwen.json 2>out/{session}/worker.log")
     if json.loads(qwen.readline(owned.startup)).get("ready") is not True:
         raise RuntimeError("Qwen did not acknowledge startup")
-    glm = owned.spawn(SPARK, f"exec /root/drift-live/spark_run.sh mcdma-target/spark_glm_session.py --session {session} --rows {args.reserve} --tap --max-new {args.glm_max_new} --messages /root/drift-live/mcdma-target/{session}.messages.json")
+    glm = owned.spawn(SPARK, f"exec /root/drift-live/spark_run.sh mcdma-target/spark_glm_session.py --session {session} --rows {args.reserve} --tap{' --causal' if args.causal and not args.no_link else ''} --max-new {args.glm_max_new} --messages /root/drift-live/mcdma-target/{session}.messages.json")
     ready = json.loads(glm.readline(owned.startup))
     if ready.get("ready") is not True:
         raise RuntimeError("GLM did not acknowledge startup")
@@ -69,7 +85,7 @@ taps = [t for t in report["forward_taps"] if "tap" in t and "seconds" in t]
 tap_clock = sorted((t["file_mtime_ns"], t["glm_positions"][1]) for t in taps)                 # head clock: GLM had verified positions < stop at that time
 schedule = []
 for r in reverse:
-    at = r["receipts"]["spark-a.invalid"]["receipt_mtime_ns"]
+    at = r["receipts"][HEAD]["receipt_mtime_ns"]
     before = [stop for ns, stop in tap_clock if ns <= at]; after = [stop for ns, stop in tap_clock if ns > at]
     schedule.append({"sequence": r["sequence"], "qwen_own_tokens": r["own_tokens"], "visible_to_glm_between_positions": [max(before) if before else None, min(after) if after else None]})
 published = {e["tap"]: e for e in bridge_log if e.get("event") == "tap_published"}; acked = {e["tap"]: e for e in bridge_log if e.get("event") == "tap_acknowledged"}
