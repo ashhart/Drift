@@ -21,7 +21,9 @@ context as text, at 32k, 64k and 128k tokens? For a joiner of the same model, an
   - same: a resident Qwen reads the context once and exports its full-attention rows and recurrent state; each joiner
     prefills its head, attaches the rows, takes the state and prefills its question;
   - glm: GLM-5.3 reads the context on the Sparks (`spark_dropin_export.py`), the export is pulled over MCDMA, translated
-    once by the final contextual reader and state translator, and each joiner attaches it as above.
+    once by the contextual reader and state translator averaged from the first two fine-tuning phases, and each joiner
+    attaches it as above. That average was the final translator when this ran; the drop-in record has
+    [the later choice](DROPIN_REAL_PROJECT.md#a-fourth-phase-and-the-final-choice).
 - Time to first token is measured from an empty cache for every joiner, so the attached ways include the joiner's head,
   attaching the rows and the state. One-time costs are listed apart.
 - GLM's handoff connector computes a full read in one engine step. At 121,548 GLM tokens that step never finished in
@@ -90,4 +92,6 @@ file with GLM's reads and pulls `a7bdbb737c883dbb94aab2e8660855c09094ad4150e10f7
 `72e633f413957aa6f445e9f13ef7e272f44ad70b56eaf07974a56e58afb24cf3`, 64k
 `201fc49a1681d2af1472df6862ade3c318230070d3204d95218d1535f801e651`, 128k first part
 `12ac3cc0b9d2f36242b4b794152f7d57c44695673cfd5a41419658a7fd32838c` and delta
-`46101763abc0e91a8cc6181a8fa5c9374167be51c9ee6d30ce04c13655228b40`. The run took 58 minutes on the Studio.
+`46101763abc0e91a8cc6181a8fa5c9374167be51c9ee6d30ce04c13655228b40`; the reader
+`ad8666de3b335537c3fe3a02588a0916ca20ff0985125360a620322db153fa20` and state translator
+`bee4d090081563a22f0f379262321d811e75a20e7276f1530734fd18570dd549`. The run took 58 minutes on the Studio.

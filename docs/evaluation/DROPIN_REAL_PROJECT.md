@@ -1,6 +1,6 @@
 # Drop-in on a real project, development results
 
-Status: exploratory, 23 September 2026. No claim rests on these runs.
+Status: exploratory, 23 and 24 September 2026. No claim rests on these runs.
 
 ## The question
 
@@ -238,9 +238,49 @@ Every translator after the first phase wrote at least one; no text arm did. Modu
 comments than text's (60 to 111 comment lines against 24 to 61), and the failures are a module cut off at the answer
 limit, a `try` with no `except`, and validators that reject valid events.
 
-The average of the first two phases is the final translator. It is the only one at text level on the short contexts in both arms, level with the best on def lines and the long set, and its rows arm has the best Stockledger mean with no module at 0. The table questions did not fix the table: the third phase fell back on the short contexts, and its rows arm wrote no working module on one seed. Every zero is a generation failure, not a missing rule. One module had `f'...")`, a quote closed with the wrong mark, and the others filled the 3,500-token limit with planning comments before the code was done. The rows' commonest miss is still the SKU pattern: the specification's table gives event_id dots and SKU none, and the translated cache gives SKU the dots of the row above it.
+At this point the average of the first two phases stayed the final translator. It was the only one at text level on the short contexts in both arms, level with the best on def lines and the long set, and its rows arm had the best Stockledger mean with no module at 0. After a fourth phase, a rule fixed beforehand chose again; see [the final choice](#a-fourth-phase-and-the-final-choice). The table questions did not fix the table: the third phase fell back on the short contexts, and its rows arm wrote no working module on one seed. Every zero is a generation failure, not a missing rule. One module had `f'...")`, a quote closed with the wrong mark, and the others filled the 3,500-token limit with planning comments before the code was done. The rows' commonest miss is still the SKU pattern: the specification's table gives event_id dots and SKU none, and the translated cache gives SKU the dots of the row above it.
 
 With the average, the drop-in across MCDMA on fresh exports answered 32 of the 32 short questions, as text did, and 69 of the 70 long-context ones against text's 70. First tokens came after 0.41 s against 1.31 s on the short contexts and 0.97 s against 4.56 s on the long one, after 96 and 95 prefilled tokens instead of 1,413 and 4,992. The pulls ran at 48.3 to 48.9 Gbit/s, and translating a context took 60 to 75 ms, or 276 ms for the long one.
+
+### A fourth phase and the final choice
+
+The fourth phase continued from the average of the average and the third phase on 4,143 questions. Half of them, 2,072,
+come from 599 windows of other installed packages' source that GLM read for this phase, among them huggingface_hub,
+pygments, setuptools, sympy and torch; the rest are drawn from the earlier sets. 125 updates of 4 answers at 5e-5,
+shuffle seed 3, 108 minutes on the Studio. The trainer's own check on the 32 short questions fell from 31 to 29.
+Rows / rows and state:
+
+| Translator | Short contexts, 32 | Def lines, 25 | Balanced long set in windows, 25 | Second dev project, 40 and 25 |
+| --- | --- | --- | --- | --- |
+| average of the average and the third phase | 32 / 32 | 23 / 25 | 24 / 25 | 35 / 35 and 21 / 22 |
+| fourth phase | 28 / 30 | 23 / 24 | 24 / 25 | 34 / 33 and 21 / 21 |
+| text | 32 | 25 | 24 | 35 and 22 |
+
+Stockledger, rows / rows and state, greedy then three samples at 0.7:
+
+| Translator | greedy | 1 | 2 | 3 | Mean, rows and state |
+| --- | --- | --- | --- | --- | --- |
+| average of the average and the third phase | 30 / 23 | 0 / 23 | 25 / 0 | 29 / 29 | 18.75 |
+| fourth phase | 29 / 32 | 6 / 32 | 25 / 0 | 31 / 32 | 24.0 |
+| text | 33 | 33 | 23 | 33 | 30.5 |
+
+The fourth phase's modules from rows and state passed 32 of the 33 checks on three seeds, one short of text. Its zero
+is a new kind of failure. The answer is the context's own stub of `validation.py`, copied whole: a docstring and
+`raise NotImplementedError`. On the questions it gave up six hits: two short contexts, a def line, and two code
+questions and a def line of the second dev project.
+
+A rule written before the fourth phase's results picked the final translator from three candidates: the average of the
+first two phases, the average of the average and the third phase, and the fourth phase. The rule, `choose_final.py`,
+is a private local file. It takes the most rows-and-state hits over the short contexts, def lines, the balanced long set and both
+halves of the second dev project, among candidates whose rows-and-state Stockledger modules never pass 0 checks. If
+none qualifies, it takes the most hits outright. Held-out results play no part. Every candidate had a module at 0, the
+average of the first two phases on two seeds, so the rule fell back on hits: 139 for the average of the average and the
+third phase, 137 for the average of the first two phases and 133 for the fourth phase.
+
+The average of the average and the third phase is the final translator. Its reader and state translator are the ones
+recorded below for the last average, and they are the GLM to Qwen files in the `translators-glm-qwen-experimental-v2`
+release. It is below text on Stockledger: its modules from rows and state average 18.75 checks against text's 30.5,
+with one at 0.
 
 ## A coding task on the Stockledger benchmark
 
@@ -273,3 +313,4 @@ Later phases results SHA-256, private local copies: second phase, short contexts
 
 Second dev project and the last average, SHA-256, private local copies: items, code questions `f2eaf1a6113b9b3b6eb2824f26757245ded068bb45e5a2c393156741c07c076e` and def lines `a217aec827a6936ee0f79eedea0f06eb8bae3446750090df973245bc5d17e8d8`; average of the first two phases, code questions `769489b47705858b180106a72c01cfd85fc6984e4726ef77f7ec4e9aa29cdb7d`, def lines `9d14f89f503b6fc37884355d861e739635bfe2060e1856180014e169c65ac4fa`, and reading in windows of 3,072 tokens `290618c472de092d77f76f8315708357b08fc14653f1f4233af1b5ec45aae2d1` and `e4a826f0c845e7a7837ffb00afc2c3cc61a0fd6e7f944ff08d1e03ca36138455`; third phase `b5bcf6a73b1009c62c3f9132ec163ac81284a79c30da985c7283a1f41177f6d4` and `2dc6206895148bcf6100afee44fbf1046a8d93eb5e40b8e7b424598a75bef819`; the last average, short contexts `ae5787bbf5389968595172867ac18d3df2bb2b85fd51a6296f553f23a6ebda7b`, def lines `092c9a6166c2484f7253c266bc67b9b71dc8b277d5134a93246aa0300aba3843`, balanced long set `b36e04d8fd216fbd095fe09d4c19630dd9abb7bc2a080fa0e8c3d518d5ed0f8b`, second dev project `30b009f075edbeacfdfc9e042906c82d7d729713e6873ac4b3dacf85865c1c06` and `15712f66a8f630ce06ebb8151577bb7f0e008a899dc5049a39d604fef9501830`, Stockledger grades `253247b783a2295984bdfd548a705879b6c67cef26f4f23303540060499f5d49`; on the Studio, its reader `29aef68de60cc44d3daae0e6ff05f3b4fddf5bcd4711013404f99bcaedd9d157` and state translator `69bd379af92dae6b0201e1eeaaa74b674844914ce0f82034e4a5109097c2e535`.
 
+Fourth phase and the final choice, SHA-256, private local copies: training questions `ab82f00f1c3bbfb36a2cd2edafce5c19fa4a0ad825e0cbad0a3e68d5b4bd969b`; short contexts `148f68127c8a69dc60b279866ec0b405676e7de14722f3af0a115c087438d3d9`, def lines `968ddf7fb0a3e5c0e58ddf0bb14a8427937334eb0da9aa70d2bbe6216eaf1b98`, balanced long set `00aa6028c00c6d21d2fd7c3357eccb9062ecf0c4255581c154ff16c3eb69b428`, second dev project `8c678c8b0bc4b3e11d30d45d541ed69a80839a8c12ff548aa646f9ed7f94b311` and `4ef2e38135277ade5992acb30611acdb052a0261f73aaa41e17ad07e8a5c1084`; Stockledger greedy `9ef7c4827bf097c93e727609119bd82957eeaaebc82ce1a8e763ff9197f5277d`, seed 1 `c6bdef1db7f9d731d935c490e52ce471bceebaae7175e75aef6f8b9736d2a71a`, seed 2 `4607d406c260f340ea641a090c0559b329880145c775661fb4233f2a1107e4a7`, seed 3 `ca5367eb89fe5b68a39d9f8bbbcc7ba00a8682b5a41dae502749c78909c3db56`, their grades `e002740d31020778d0c79e7d56457813e8fcd27f5d74a8d7f2d1786e9cdac0f1`; training history `2a025bc764f3542d94d68c8769dea7548123687ea74abd64780d9c0d459c8c8b`; the choice rule `91e988690f8526140c46632ad663e7cda77c3d6cb6a3bc5a2097fbbc1feb735f` and its report `e00de6e6d3366f0dc963d70958b75120f707d49bd3f6ab03fba7a07938fa3366`; on the Studio, the fourth phase's reader `f0431298314a0d3a1f6e6a11e618932377a944219549f668539dd42bbe93be9b` and state translator `b6729773217d66eacd6fbebc23ab56840844ed31520cc0fad6cd5106ce98d536`.
