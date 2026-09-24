@@ -37,7 +37,7 @@ def configuration(root):
                 owner_control=dict(root=str(root),socket_name='owner.sock',evidence_name='bank.json'))
 
 
-def start(root):
+def start(root,wall=5):
     config=configuration(root); path=root/'config.json'; path.write_text(json.dumps(config))
     runner=root/'fixture.py'
     runner.write_text('''import sys,json,time
@@ -90,7 +90,7 @@ code=serve_owner(json.load(open(sys.argv[1])),backend_factory=factory,route_fact
 raise SystemExit(code)
 ''')
     args=[sys.executable,'-m','drift.serving.worker_stdio_launcher','--evidence',str(root/'termination.json'),
-          '--wall-seconds','5','--stop-timeout','.1','--',sys.executable,str(runner),str(path)]
+          '--wall-seconds',str(wall),'--stop-timeout','.1','--',sys.executable,str(runner),str(path)]
     process=subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,bufsize=0,env={**os.environ,'PYTHONPATH':str(Path(__file__).resolve().parents[1])})
     return process,config
 
@@ -122,7 +122,7 @@ def finish(process,root):
 
 
 def test_midturn_publication_is_held_for_next_native_tool_turn(root):
-    process,config=start(root)
+    process,config=start(root,wall=20)   # the whole exchange runs inside this budget; 5 s ran out on a slow CI runner
     try:
         with opened(process,config) as peer:
             send(process,3,'stream',{'max_tokens':8})
