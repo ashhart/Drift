@@ -17,7 +17,7 @@ class WorkerSession:
         self.poisoned = self.closed = False
         self.ready = self.control_ready = False
         self.tools, self.pending = set(), set()
-        self.active_seq = None
+        self.active_seq = self.last_stream_seq = None
         self.lock = threading.Lock()
         self.cancel_requested = threading.Event()
         self.stream_finished = threading.Event()
@@ -54,7 +54,7 @@ class WorkerSession:
                     maximum = integer(payload['max_tokens'], 1, min(self.limits['max_output_tokens'], self.limits['max_session_tokens'] - self.tokens))
                     require((self.ready or self.control_ready) and not self.pending)
                     require(self.turns < self.limits['max_turns'], 'LIMIT')
-                    self.active_seq = frame['seq']; self.turns += 1; self.ready = self.control_ready = False
+                    self.active_seq = self.last_stream_seq = frame['seq']; self.turns += 1; self.ready = self.control_ready = False
                     self.stream_finished.clear()
                     self.stream_started.set()
                 else:
@@ -141,7 +141,12 @@ class WorkerSession:
             self.backend.tool_result(payload); self._deadline(); self.pending.remove(payload['call_id']); self.ready = True
             return 'tool_result_ack', {'call_id': payload['call_id']}
         if op == 'cancel':
-            fields(payload, ('target_seq',)); require(payload['target_seq'] == self.active_seq and self.active_seq is not None)
+            fields(payload, ('target_seq',))
+            if self.active_seq is None and payload['target_seq'] == self.last_stream_seq:   # the turn ended as the cancel crossed it
+                remaining = self.limits['deadline_ms'] / 1000 - (self.clock() - self.started)
+                require(self.stream_finished.wait(max(0, remaining)), 'LIMIT')              # its terminal frame goes out first
+                return 'cancelled', {'target_seq': payload['target_seq']}
+            require(payload['target_seq'] == self.active_seq and self.active_seq is not None)
             require(self.backend.capabilities['cancellation'], 'CAPABILITY')
             self.cancel_requested.set()
             self.backend.cancel(payload['target_seq'])

@@ -10,6 +10,7 @@ from drift.serving.worker_session import WorkerSession
 def serve(session, source, sink):
     output_lock = threading.Lock()
     active = None
+    after_poison = False
 
     def emit(frame):
         for response in session.handle(frame):
@@ -34,8 +35,11 @@ def serve(session, source, sink):
             if frame.get('op') == 'stream':
                 if active is not None and session.active_seq is None:
                     active.join(timeout=1)          # the last turn has ended; its thread may still be finishing
-                if active is not None and active.is_alive():
-                    emit(frame)
+                if active is not None and active.is_alive():   # a second stream while one runs is refused, never run here
+                    with output_lock:
+                        sink.write(json.dumps(session._reply(frame, 'error', {'code': 'PROTOCOL'})) + '\n')
+                        sink.flush()
+                    session.poisoned = True
                     return 2
                 session.stream_started.clear()
                 active = threading.Thread(target=emit, args=(frame,), daemon=True)
@@ -44,9 +48,13 @@ def serve(session, source, sink):
                     return 2
             else:
                 emit(frame)
-            if session.closed or session.poisoned:
+            if session.closed:
                 break
-        return 0 if session.closed else 2
+            if session.poisoned:
+                if after_poison:                   # the frame after poisoning was not close
+                    break
+                after_poison = True                # a cancelled or failed session still answers one close
+        return 0 if session.closed and not session.poisoned else 2
     finally:
         if active is not None and active.is_alive():
             session.cancel_requested.set()

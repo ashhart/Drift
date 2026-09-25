@@ -297,3 +297,113 @@ def test_stdio_still_refuses_a_stream_sent_during_a_live_turn():
     finally:
         release.set()
     assert [json.loads(line)['op'] for line in output.getvalue().splitlines()][-1] == 'error'
+
+
+def _cancellable():
+    import threading
+    release = threading.Event()
+
+    class Slow(Backend):
+        streams = 0
+
+        def stream(self, max_tokens):
+            Slow.streams += 1
+            release.wait(5)
+            yield from Backend.stream(self, max_tokens)
+
+        def cancel(self, target_seq):
+            release.set(); super().cancel(target_seq)
+    return Slow, release
+
+
+def test_stdio_answers_the_close_a_client_sends_after_cancelling():
+    import io
+    import json
+    from drift.serving.worker_stdio import serve
+    Slow, release = _cancellable()
+    frames = [command(0, 'open', {**PINS, 'limits': LIMITS, 'system_prompt': [], 'tools': []}), command(1, 'own_prompt', {'text': 'a'}),
+              command(2, 'stream', {'max_tokens': 8}), command(3, 'cancel', {'target_seq': 3}), command(4, 'close', {})]
+    output = io.StringIO()
+    try:
+        code = serve(WorkerSession('qwen', PINS, LIMITS, Slow()), io.StringIO(''.join(json.dumps(x) + '\n' for x in frames)), output)
+    finally:
+        release.set()
+    assert [json.loads(line)['op'] for line in output.getvalue().splitlines()] == ['opened', 'own_prompt_ack', 'cancelled', 'closed']
+    assert code == 2                                           # a cancelled session is not a completed one
+
+
+def test_stdio_stops_when_the_frame_after_a_cancel_is_not_close():
+    import io
+    import json
+    from drift.serving.worker_stdio import serve
+    Slow, release = _cancellable()
+    frames = [command(0, 'open', {**PINS, 'limits': LIMITS, 'system_prompt': [], 'tools': []}), command(1, 'own_prompt', {'text': 'a'}),
+              command(2, 'stream', {'max_tokens': 8}), command(3, 'cancel', {'target_seq': 3}), command(4, 'own_prompt', {'text': 'b'}),
+              command(5, 'close', {})]
+    output = io.StringIO()
+    try:
+        assert serve(WorkerSession('qwen', PINS, LIMITS, Slow()), io.StringIO(''.join(json.dumps(x) + '\n' for x in frames)), output) == 2
+    finally:
+        release.set()
+    assert [json.loads(line)['op'] for line in output.getvalue().splitlines()] == ['opened', 'own_prompt_ack', 'cancelled', 'error']
+
+
+def test_stdio_refuses_a_stream_while_the_last_turns_thread_outlasts_the_wait():
+    import io
+    import json
+    import threading
+    import time
+    from drift.serving.worker_stdio import serve
+
+    class Stuck(threading.Event):                               # the finishing thread lingers past serve's one-second wait
+        def set(self):
+            if threading.current_thread() is not threading.main_thread():
+                time.sleep(1.3)
+            super().set()
+
+    class Counting(Backend):
+        streams = 0
+
+        def stream(self, max_tokens):
+            Counting.streams += 1
+            yield from Backend.stream(self, max_tokens)
+
+    class Sink(io.StringIO):
+        terminals = threading.Semaphore(0)
+
+        def write(self, text):
+            written = super().write(text)
+            if json.loads(text)['op'] == 'terminal':
+                self.terminals.release()
+            return written
+
+    class Client:
+        def __init__(self, frames, sink):
+            self.frames, self.sink, self.after_stream = list(frames), sink, False
+
+        def readline(self, limit):
+            if not self.frames:
+                return ''
+            if self.after_stream:
+                assert self.sink.terminals.acquire(timeout=5)
+            frame = self.frames.pop(0); self.after_stream = frame['op'] == 'stream'
+            return json.dumps(frame) + '\n'
+
+    session = WorkerSession('qwen', PINS, LIMITS, Counting()); session.stream_finished = Stuck()
+    frames = [command(0, 'open', {**PINS, 'limits': LIMITS, 'system_prompt': [], 'tools': []}), command(1, 'own_prompt', {'text': 'a'}),
+              command(2, 'stream', {'max_tokens': 8}), command(3, 'own_prompt', {'text': 'b'}), command(4, 'stream', {'max_tokens': 8})]
+    sink = Sink()
+    assert serve(session, Client(frames, sink), sink) == 2
+    assert [json.loads(line)['op'] for line in sink.getvalue().splitlines()][-1] == 'error' and Counting.streams == 1
+
+
+def test_a_cancel_that_crosses_the_final_frame_is_answered_without_poisoning():
+    session, backend = opened()
+    assert list(session.handle(command(1, 'own_prompt', {'text': 'a'})))[0]['op'] == 'own_prompt_ack'
+    assert [r['op'] for r in session.handle(command(2, 'stream', {'max_tokens': 8}))] == ['text', 'terminal']
+    reply = list(session.handle(command(3, 'cancel', {'target_seq': 3})))[0]
+    assert reply['op'] == 'cancelled' and reply['payload'] == {'target_seq': 3} and not session.poisoned
+    assert list(session.handle(command(4, 'close', {})))[0]['op'] == 'closed'
+    other, _ = opened()
+    list(other.handle(command(1, 'own_prompt', {'text': 'a'}))); list(other.handle(command(2, 'stream', {'max_tokens': 8})))
+    assert list(other.handle(command(3, 'cancel', {'target_seq': 2})))[0]['op'] == 'error' and other.poisoned
