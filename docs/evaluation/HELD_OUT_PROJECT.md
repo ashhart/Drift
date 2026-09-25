@@ -1,6 +1,6 @@
 # Held-out project
 
-Status: code questions FAILED; def lines FAILED with the averaged translator and PASSED with the final translator; coding task INVALID. Runs 23 September 2026 with the averaged translator `reader_answer3fg` and 24 September with the final translator `reader_answer3fgh`.
+Status: code questions FAILED; def lines FAILED with the averaged translator and PASSED with the final translator; coding task INVALID as first specified, and FAILED with the final translator once specified as two passes. Runs 23 September 2026 with the averaged translator `reader_answer3fg`, and 24 and 25 September with the final translator `reader_answer3fgh`.
 
 ## Question
 
@@ -80,7 +80,19 @@ With rows and state the def lines stay within one of text on every seed, so they
 
 The four code-question misses sit on three of the questions the averaged translator missed, each asking which function raises a message inside a long method. On seeds 0 and 1 the cache answers "Invalid quoted string" with `process_python_str`, the helper whose call sits just above that raise in `_parse_marker_var`. On seed 1 it names `validate` for a `_from_dict` message in `direct_url.py`, and `Package.__init__` for one in `pylock.py`. The one def-line miss, at seed 2, writes the parameter `uts46` of `idna`'s `decode` as `uts64`.
 
-The coding task did not run with this translator; it is INVALID for the reasons above.
+### The coding task, specified as two passes
+
+Text never finished the first task because Qwen spent its answer on the specification's error order: the first three errors are found while reading the lines, before any of the last three is looked for. `iniparse_task.py --two-pass` states the same rules as the two passes iniconfig's parser makes, lines to records and then records to the result. A parser written from that specification alone passes all 33 hidden checks, and the checks and their expected results are unchanged. GLM read the new context on the Sparks as item `i2`, 3,025 tokens against the first context's 2,783.
+
+The design was fixed before any translated arm ran: the drop-in framing with no thinking, 6,000 answer tokens, text first and greedy, and the task counting only if text passed at least 25 of the 33 checks. Text passed all 33 in under a minute. Text, no memory, rows, and rows and state then ran with the final translator on three seeds, greedy and then two samples at 0.7. Hidden checks passed, of 33:
+
+| Seed | Text | Rows and state | Rows | No memory |
+| --- | --- | --- | --- | --- |
+| 0 | 33 | 33 | 27 | 0 |
+| 1 | 11 | 0 | 30 | 0 |
+| 2 | 32 | 4 | 3 | 0 |
+
+Greedy, rows and state wrote a module that passes every check, as text did; rows alone missed the six continuation checks. The sampled seeds fail the bar. At seed 1 the rows-and-state answer ran to the 6,000-token limit, 23,693 characters, without closing its code block, while text wrote 75 comment lines and a module that passes 11 checks. At seed 2 both translated arms wrote modules that parse but reject nearly all valid input, with 33 and 81 comment lines, while text missed a single check. It is the failure the translated cache shows on Stockledger: sampled answers carry more planning comments than text's, and the code breaks or runs out of room.
 
 ## What it cannot show
 
@@ -100,3 +112,5 @@ SHA-256 of private local copies:
 Each seed's code questions took about 20 minutes on the Studio.
 
 Final translator run, SHA-256, private local copies: code questions, seeds 0 to 2, `7316ce648fe5dd0bef04e09d239a50bded8fdcad5996cae04deb89bf462b0323`, `a04e4452e7afbe9f8bc534cf16927c1975e9ded5c780be0358738fe6ff16f1e0`, `15144c9daf74d7e60657bf07280324ead3160f9c92a9a458f4ee57e0910ff451`; def lines, seeds 0 to 2, `cda1e701ef0d488b32e14740459957f5839248faf7dc2397e157711f5c18a090`, `63a1120808667ec643afea9b7f45eedebb29a717e3e90a22f741b4110c264482`, `3d3ff435fd52a65b04bb2dd0efcdd07ccbb9a3bd1a9d590252463bba73677bfd`; the stopped run's partial def lines at seed 1, kept and not scored, `ce8a9e0ecf1a39839c26e6e04d81bed19187b003c2d2e575ccda52cac9b9f77f`; the coding task with thinking allowed, items `fde371f179ad1063f910d1ce1db19089d310456fc65eeb565165336b456d8b41` and text's answer `6d90c61479649f5820e8ec9065e2b0cce4aecbb952b7a77615e666b9062cd5cf`. The items and GLM's exports are the ones recorded above. On the Studio, the translator's reader `29aef68de60cc44d3daae0e6ff05f3b4fddf5bcd4711013404f99bcaedd9d157` and state translator `69bd379af92dae6b0201e1eeaaa74b674844914ce0f82034e4a5109097c2e535`.
+
+Coding task specified as two passes, SHA-256, private local copies: items `2228c15991fcad12790044407db2af046fe098058020eee6538f80371c4988d9`; text's greedy run `e742318fc0f2ff2810a5df831813a296cf742c0bc183e8783b430c192b4730fd`; seeds 0 to 2 `ab592b88086285489defbc1ebdf3db4ee60de3a1844187e139ee16b58e9082ea`, `42602f181ad7bb7683c8f0ecd3d338ff7cc55519c6c74c85ced7672f5685fd10`, `5456ff13a048a683dbf8af000b158953504fcffb5d7eb475f17c062d8940604e`; on the Studio, GLM's export of the context `f5d4979bbc942777fe05eb7f17dd0125fd97f23830395ac37334cdac841a557c`. The run took 15 minutes on the Studio.
