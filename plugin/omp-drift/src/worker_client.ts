@@ -15,6 +15,8 @@ export class WorkerClient {
   private deadline?: number;
   private lifetime?: ReturnType<typeof setTimeout>;
   private pending = new Map<number, Pending>();
+  private cancelling?: { target: number; done: Promise<void> };
+  private closing?: Promise<void>;
   constructor(private transport: WorkerTransport, identity: Identity, limits: Limits, private expected: ExpectedBackend, private clock: () => number = () => performance.now()) {
     validateBinding(identity, limits);
     this.identity = structuredClone(identity); this.limits = structuredClone(limits);
@@ -117,17 +119,26 @@ export class WorkerClient {
     this.ledger.start(maxTokens);
     return await this.request("stream", "terminal", { max_tokens: maxTokens }, event) as unknown as Terminal;
   }
-  async cancel(): Promise<void> {
+  // A turn's abort and its owner's close may both cancel it; the worker answers one cancel per turn.
+  cancel(): Promise<void> {
     const target = this.active;
-    if (target === undefined) return;
+    if (target === undefined) return Promise.resolve();
+    if (this.cancelling?.target !== target) this.cancelling = { target, done: this.cancelTurn(target) };
+    return this.cancelling.done;
+  }
+  private async cancelTurn(target: number): Promise<void> {
     const result = await this.request("cancel", "cancelled", { target_seq: target });
     if (canonical(result) !== canonical({ target_seq: target })) { this.abort(); fail(); }
     const pending = this.pending.get(target);
     if (pending) { clearTimeout(pending.timer); this.pending.delete(target); pending.reject(new Error("DRIFT_WORKER_CANCELLED")); }
     this.active = undefined;
   }
-  async close(): Promise<void> {
-    if (this.dead) return;
+  // A cancelled turn's settle and the owner's teardown share one ordered close.
+  close(): Promise<void> {
+    if (this.dead && !this.closing) return Promise.resolve();
+    return this.closing ??= this.closeOnce();
+  }
+  private async closeOnce(): Promise<void> {
     if (this.active !== undefined) await this.cancel();
     const result = await this.request("close", "closed", {});
     if (Object.keys(result).length) { this.abort(); fail(); }

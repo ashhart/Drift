@@ -86,9 +86,13 @@ Enable verifies fresh route cursors and selects the pinned parent model; then
 give that parent its own task. Paired staged receipts release each epoch, and
 subsequent boundaries confirm actual application. The two terminal boundaries
 confirm the final pending publications before settling. Disable closes the
-workers and stops release; independent native termination receipts remain
-necessary to claim resource cleanup. A failed or completed pair is not reusable:
-start with fresh sessions, profiles, mailbox consumers and lease.
+workers, stops release and puts back the model and tools the session had before
+enable, even when a worker does not close in order; its notice says which
+happened. Independent native termination receipts remain necessary to claim
+resource cleanup. A refused command, such as a second enable, a mistyped one or
+a disable from another session, changes nothing and leaves the pair running. A
+failed or completed pair is not reusable: start with fresh sessions, profiles,
+mailbox consumers and lease.
 
 ## Reproduce local integration QA
 

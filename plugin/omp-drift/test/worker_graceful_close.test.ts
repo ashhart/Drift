@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { workerProvider } from "../src/worker_provider";
-import { context, deferred, limits, model, setup, Sink, Transport, until } from "./worker_boundary_fixture";
+import { WorkerClient } from "../src/worker_client";
+import { context, deferred, identity, limits, model, setup, Sink, Transport, until } from "./worker_boundary_fixture";
 const create = workerProvider as any;
 const ops = (f: any) => f.transport.messages.map((message: any) => message.op);
 
@@ -53,4 +54,41 @@ test("an already dead client is not asked to close again", async () => {
   expect((await sink.ended).type).toBe("error");
   release.resolve();
   expect(ops(f).filter((op: string) => op === "close").length).toBe(0);
+});
+
+// Answers cancel and close a little later, as the Python worker does: one cancel per turn, then only close.
+class Worker extends Transport {
+  cancelled = false;
+  send(message: any) {
+    if (!["cancel", "close"].includes(message.op)) return super.send(message);
+    this.messages.push(message);
+    setTimeout(() => {
+      const refused = message.op === "cancel" && this.cancelled;
+      if (message.op === "cancel") this.cancelled = true;
+      const op = refused ? "error" : message.op === "cancel" ? "cancelled" : "closed";
+      this.listener({ ...message, op, payload: refused ? { code: "PROTOCOL" } : message.op === "cancel" ? { target_seq: message.payload.target_seq } : {} });
+    }, 5);
+  }
+}
+const worker = () => { const transport = new Worker(); return { transport, client: new WorkerClient(transport, identity, limits, { backend: "fixture", nativeStates: ["fixture"] }) }; };
+const endings = (transport: Transport) => transport.messages.map(message => message.op).filter(op => op === "cancel" || op === "close");
+
+test("a turn's abort and the owner's close of the same worker share one cancel and one close", async () => {
+  const { transport, client } = worker(), controller = new AbortController();
+  const sink = create(client, () => new Sink(), {})(model, context, { signal: controller.signal });
+  await until(() => transport.active);
+  controller.abort(); await client.close();
+  expect((await sink.ended).reason).toBe("aborted");
+  expect(endings(transport)).toEqual(["cancel", "close"]);
+  expect(transport.closed).toBe(true);
+});
+
+test("the owner's close of a parked turn is not undone by the turn closing the same worker", async () => {
+  const { transport, client } = worker(), controller = new AbortController(); let parked = false;
+  const sink = create(client, () => new Sink(), { beforeToolDispatch: () => { parked = true; return new Promise(() => {}); } })(model, context, { signal: controller.signal });
+  await until(() => transport.active); transport.calls(); transport.terminal(); await until(() => parked);
+  controller.abort(); await client.close();
+  expect((await sink.ended).reason).toBe("aborted");
+  expect(endings(transport)).toEqual(["close"]);
+  expect(transport.closed).toBe(true);
 });
