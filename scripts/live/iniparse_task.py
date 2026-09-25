@@ -5,7 +5,8 @@ context holds SPEC.md, which states the parser's rules, and the package's own ex
 _parse.py; the parser's real source is not in it. The joining model gets the context from Drift memory, from text, or
 not at all, and writes iniconfig/_parse.py. Hidden checks, never shown to either model, run the returned module on INI
 inputs in isolated Python processes with a bare environment and a timeout, and compare what it returns or raises with
-what the real parser does; the expected results are recorded below.
+what the real parser does; the expected results are recorded below. With --two-pass, SPEC.md states the same rules as
+the two passes the real parser makes, and the item's id becomes i2-iniparse so it reads GLM's export of that context.
 
   python3 scripts/live/iniparse_task.py --root .venv/lib/python3.12/site-packages --out iniparse_items.json
 """
@@ -63,6 +64,69 @@ fault and `msg` is exactly one of these:
 
 The first three are found while reading the lines, over the whole data, before any of the last three is looked for.
 The last three are then found in line order.
+"""
+
+# The same rules as SPEC, stated as the two passes the real parser makes; text ran out of tokens on SPEC's error order
+SPEC_TWO_PASS = """# iniconfig: parsing INI data
+
+`parse_ini_data(path, data, *, strip_inline_comments, strip_section_whitespace=False)` parses INI text and returns
+`(sections, sources)`. `sections` maps each section name to a dict of its names and values, both in file order.
+`sources` maps `(section, None)` to the line index of the section's header and `(section, name)` to the line index of
+the line that defined the name.
+
+It works in two passes. The first pass turns the lines into a list of records and the second builds the result from
+them. The first pass reads the whole data before the second starts, so an error of the first pass always wins.
+
+## First pass: lines to records
+
+A record is `[lineno, section, name, value]`. Keep `section`, the most recent header's name, starting at `None`. For
+each `lineno, line` in `enumerate(data.splitlines(True))`, let `stripped = line.rstrip()`; the first rule that matches
+applies.
+
+1. Blank or comment: `line.lstrip()[:1]` is `""`, `"#"` or `";"`. Skip the line. `iscommentline(line)` returns
+   whether this rule matches.
+2. Section header: `stripped` starts with `[`. Cut `stripped` at its first `#` and remove trailing whitespace, then
+   cut that at its first `;` and remove trailing whitespace again.
+   - If the result ends with `]`, the name is the result without its first and last characters. With
+     `strip_section_whitespace` true, strip the name. If the name is now empty, raise `empty section name`. Otherwise
+     set `section` to the name and append `[lineno, section, None, None]`.
+   - If the result does not end with `]`, the line is a continuation (rule 4) whose text is `line.strip()`, with no
+     inline comment cut.
+3. Name and value: `stripped` starts with any other character that is not whitespace. Split `stripped` at its first
+   `=`. If it has no `=`, or the part before the `=` contains `:`, split `stripped` at its first `:` instead. If it
+   has no `:` either, raise `unexpected line`. The name is the part before, stripped, and the value the part after,
+   stripped. With `strip_inline_comments` true, cut the value at its first `#` and remove trailing whitespace, then at
+   its first `;` and remove trailing whitespace. Append `[lineno, section, name, value]`.
+4. Continuation: any other line, one that starts with whitespace. Its text is `line.strip()`, cut at `#` then `;` as in
+   rule 3 when `strip_inline_comments` is true. If there are no records yet, or the last record is a header (its name
+   is `None`), raise `unexpected value continuation`. Otherwise change the last record's value: an empty value becomes
+   the text; any other value becomes the value, a newline and the text. The record keeps its own `lineno`.
+
+## Second pass: records to the result
+
+Start with `sections = {}` and `sources = {}` and take the records in order:
+
+- A record whose section is `None` raises `no section header defined`.
+- A header record (name `None`): if its section is already in `sections`, raise `duplicate section`. Otherwise set
+  `sections[section] = {}` and `sources[(section, None)] = lineno`.
+- A name and value record: if its name is already in `sections[section]`, raise `duplicate name`. Otherwise set
+  `sections[section][name] = value` and `sources[(section, name)] = lineno`.
+
+Then return `(sections, sources)`.
+
+## Errors
+
+Every error is `ParseError(path, lineno, msg)` from `iniconfig.exceptions`, where `lineno` is the line's index, or in
+the second pass the record's. `msg` is exactly:
+
+| Error | `msg` |
+| --- | --- |
+| empty section name | `"empty section name"` |
+| unexpected value continuation | `"unexpected value continuation"` |
+| unexpected line | `f"unexpected line: {stripped!r}"` |
+| no section header defined | `"no section header defined"` |
+| duplicate section | `f"duplicate section {section!r}"` |
+| duplicate name | `f"duplicate name {name!r}"` |
 """
 
 STUB = '''"""INI parsing for iniconfig. Implements parse_ini_data as SPEC.md describes."""
@@ -191,9 +255,9 @@ def grade(answer: str, exceptions_source: str, timeout: float = 10) -> dict:
     return {"passed": sum(results.values()), "total": len(results), "code": code is not None, "results": results}
 
 
-def context(root: Path) -> str:
+def context(root: Path, spec: str = SPEC) -> str:
     """The task's context: the specification, the package's own exceptions and __init__, and the parser's stub."""
-    parts = [f"### SPEC.md\n```markdown\n{SPEC.rstrip()}\n```\n"]
+    parts = [f"### SPEC.md\n```markdown\n{spec.rstrip()}\n```\n"]
     parts += [f"### {name}\n```python\n{(root / name).read_text().rstrip()}\n```\n" for name in CONTEXT_FILES]
     parts.append(f"### iniconfig/_parse.py\n```python\n{STUB.rstrip()}\n```\n")
     return "\n".join(parts)
@@ -206,13 +270,15 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=Path, required=True, help="gate items for the task")
     parser.add_argument("--record-expected", action="store_true", help="record the real parser's results for the hidden checks")
     parser.add_argument("--think", action="store_true", help="let the joining model think before it answers, instead of the empty think block")
+    parser.add_argument("--two-pass", action="store_true", help="state the rules as the parser's two passes (SPEC_TWO_PASS)")
     args = parser.parse_args()
     if args.record_expected:
         sys.path.insert(0, str(args.root))
         from iniconfig._parse import parse_ini_data
         EXPECTED_FILE.write_text(json.dumps({name: outcome(parse_ini_data, data, kwargs) for name, data, kwargs in CASES}, indent=1) + "\n")
     from gate_items import HEAD, tail
-    passage = context(args.root)
-    args.out.write_text(json.dumps([{"id": "i1-iniparse", "kind": "coding", "passage": passage, "question": TASK, "answer": "",
+    passage = context(args.root, SPEC_TWO_PASS if args.two_pass else SPEC)
+    item_id = "i2-iniparse" if args.two_pass else "i1-iniparse"   # the gate loads GLM's latents by this id's prefix
+    args.out.write_text(json.dumps([{"id": item_id, "kind": "coding", "passage": passage, "question": TASK, "answer": "",
                                      "head_text": HEAD, "tail_text": tail(TASK).split("<think>")[0] if args.think else tail(TASK)}], indent=1) + "\n")
     print(json.dumps({"passage_chars": len(passage), "checks": len(CASES)}))
