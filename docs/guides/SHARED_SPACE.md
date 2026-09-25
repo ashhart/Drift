@@ -1,6 +1,6 @@
 # Shared space: adding a model
 
-**Status:** in place and tested. Qwen joined with one command, and GLM to Qwen through the shared space answered 29 of 32 short-context questions against 26 for the direct pairwise translator ([record](../evaluation/SHARED_SPACE_MEMBER.md)).
+**Status:** in place and tested. Qwen joined with one command, and GLM to Qwen through the shared space answered 27 of 32 short-context questions against 26 for the direct pairwise translator ([record](../evaluation/SHARED_SPACE_MEMBER.md)).
 
 Pairwise translators grow as N squared: GLM, Qwen and DeepSeek already need six, and each new model adds two per member. The shared space needs two maps per model. Each model maps into one hub and out of it, and any two members compose into one translator.
 

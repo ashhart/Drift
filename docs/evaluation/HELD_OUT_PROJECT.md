@@ -24,25 +24,29 @@ The translator was fixed before the run. The training data were this repository'
 
 GLM read each context in its reading frame on the Sparks (`export_passages.py`). Qwen ran on the Studio with the drop-in's framing and a 16,384-token dense budget. Arms: text, no memory, GLM's translated rows, and GLM's translated rows and recurrent state. Seed 0 is greedy; seeds 1 and 2 sample at 0.7.
 
+## Scoring
+
+Answers are scored by `drift/eval/answer_match.py`. The value an answer states for a constant or a default is compared as a number, a function name must appear as a whole identifier outside the question's own message and path, and a def line must parse as callable as the source defines it. Every table here was rescored with it on 25 September from the same result files, whose hashes are below. The first scoring compared keys by substring. It counted as wrong every answer that wrote three constants in hex, as the source does (`0xFF000000` against the key 4278190080), and it never found a def line longer than eight lines, which put text at 37 of 40 and 24 of 25. It also credited some no-memory answers that only repeated the question's words. No verdict changed.
+
 ## Results
 
 Code questions, of 40:
 
 | Seed | Text | Rows and state | Rows | No memory |
 | --- | --- | --- | --- | --- |
-| 0 | 37 | 34 | 32 | 9 |
-| 1 | 37 | 35 | 29 | 8 |
-| 2 | 37 | 33 | 35 | 7 |
+| 0 | 40 | 37 | 35 | 7 |
+| 1 | 40 | 38 | 32 | 6 |
+| 2 | 40 | 36 | 36 | 6 |
 
 Def lines, of 25:
 
 | Seed | Text | Rows and state | Rows | No memory |
 | --- | --- | --- | --- | --- |
-| 0 | 24 | 23 | 23 | 0 |
-| 1 | 24 | 22 | 24 | 1 |
-| 2 | 24 | 23 | 24 | 0 |
+| 0 | 25 | 24 | 24 | 0 |
+| 1 | 25 | 23 | 24 | 1 |
+| 2 | 25 | 24 | 25 | 0 |
 
-The code questions miss the bar by 2 to 4 questions with rows and state, and by 2 to 8 with rows alone. On def lines, rows alone stay within one question on every seed; rows and state fall two short on seed 1.
+The code questions miss the bar by 2 to 4 questions with rows and state, and by 4 to 8 with rows alone. On def lines, rows alone stay within one question on every seed; rows and state fall two short on seed 1.
 
 The coding task is INVALID. Every arm scored 0 or 2 of 33 on every seed, text included. Text's answer reached the 3,500-token limit partway through a module full of planning comments, so no arm's module was complete. Three fixes did not make it usable, each tried on the text arm alone:
 
@@ -64,21 +68,21 @@ Code questions, of 40:
 
 | Seed | Text | Rows and state | Rows | No memory |
 | --- | --- | --- | --- | --- |
-| 0 | 37 | 36 | 31 | 9 |
-| 1 | 37 | 34 | 34 | 11 |
-| 2 | 37 | 37 | 36 | 6 |
+| 0 | 40 | 39 | 34 | 7 |
+| 1 | 40 | 36 | 35 | 6 |
+| 2 | 40 | 40 | 38 | 6 |
 
 Def lines, of 25:
 
 | Seed | Text | Rows and state | Rows | No memory |
 | --- | --- | --- | --- | --- |
-| 0 | 24 | 24 | 23 | 0 |
-| 1 | 24 | 24 | 23 | 0 |
-| 2 | 24 | 23 | 22 | 0 |
+| 0 | 25 | 25 | 24 | 0 |
+| 1 | 25 | 25 | 24 | 0 |
+| 2 | 25 | 24 | 23 | 0 |
 
-With rows and state the def lines stay within one of text on every seed, so they pass. The code questions are one short on seed 0, level on seed 2 and three short on seed 1, so they still fail. The averaged translator trailed text by 2 to 4 code questions and by up to 2 def lines.
+With rows and state the def lines stay within one of text on every seed, so they pass. The code questions are one short on seed 0, level on seed 2 and four short on seed 1, so they still fail. The averaged translator trailed text by 2 to 4 code questions and by up to 2 def lines.
 
-The four code-question misses sit on three of the questions the averaged translator missed, each asking which function raises a message inside a long method. On seeds 0 and 1 the cache answers "Invalid quoted string" with `process_python_str`, the helper whose call sits just above that raise in `_parse_marker_var`. On seed 1 it names `validate` for a `_from_dict` message in `direct_url.py`, and `Package.__init__` for one in `pylock.py`. The one def-line miss, at seed 2, writes the parameter `uts46` of `idna`'s `decode` as `uts64`.
+Four of the five code-question misses sit on three of the questions the averaged translator missed, each asking which function raises a message inside a long method. On seeds 0 and 1 the cache answers "Invalid quoted string" with `process_python_str`, the helper whose call sits just above that raise in `_parse_marker_var`. On seed 1 it names `validate` for a `_from_dict` message in `direct_url.py`, and `Package.__init__` for one in `pylock.py`. The fifth, also at seed 1, writes the constant `EF_ARM_ABI_VER5` as `0x0500000`, a zero short of `0x05000000`; the first scoring hid it by marking that question wrong for every arm. The one def-line miss, at seed 2, writes the parameter `uts46` of `idna`'s `decode` as `uts64`.
 
 ### The coding task, specified as two passes
 
@@ -96,7 +100,7 @@ Greedy, rows and state wrote a module that passes every check, as text did; rows
 
 ## What it cannot show
 
-The agent that built the translator also chose these files and wrote the questions, before the run and without tuning on them. The owner-run protocol in [HELD_OUT_PROTOCOL.md](HELD_OUT_PROTOCOL.md) would keep the test set from the agent entirely.
+The agent that built the translator also chose these files and wrote the questions, before the run and without tuning on them. The packages were not in training, but a close relative was: the standard library's `encodings/idna.py`, which `idna/codec.py` (context h2) follows, is one of the training windows, with questions on its `encode` and `ToUnicode`. The owner-run protocol in [HELD_OUT_PROTOCOL.md](HELD_OUT_PROTOCOL.md) would keep the test set from the agent entirely.
 
 ## Records
 

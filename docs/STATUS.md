@@ -39,11 +39,13 @@ on the Studio, Qwen runs the loop's own MLX path.
   own modules, pulled over MCDMA at about 49 Gbit/s, and answers without reading the
   project. It prefills about 96 tokens instead of the whole context. With its own cache in
   place of GLM's it matches text on every set. With GLM's cache read by a contextual reader
-  fine-tuned on answers, it matched text on this repository's 32 short-context questions,
-  answered 69 of 70 long-context questions over MCDMA against text's 70 with its first token
-  4.7 times sooner, and matched text on 40 questions about code from other packages (35
-  each). It trails text on a held-out project, by 2 to 4 of 40 questions, and on Stockledger,
-  where its modules average 29.0 of 33 checks against text's 30.5:
+  fine-tuned on answers, it matched text on this repository's 32 short-context questions, and
+  an earlier reader answered 69 of 70 long-context questions over MCDMA against text's 70 with
+  its first token 4.7 times sooner. The final translator answered 38 of 40 questions about code
+  from other packages against text's 40, and 36 to 40 of 40 on a held-out project against
+  text's 40, within one def line of text on every seed. It trails text on Stockledger, where
+  its modules average 18.75 of 33 checks against text's 30.5. Scores are from the corrected
+  scorer of 25 September:
   [drop-in results](evaluation/DROPIN_REAL_PROJECT.md), [held-out project](evaluation/HELD_OUT_PROJECT.md).
 - Payoff at long contexts: five joiners over 32k, 64k and 128k tokens of code. A joiner
   attaching GLM's translated cache had its first token 66 to 131 times sooner than one
@@ -52,7 +54,7 @@ on the Studio, Qwen runs the loop's own MLX path.
   pull and the translation, where five reading the text took 1,904 s. Every way found its
   needles: [payoff](evaluation/PAYOFF_LONG_CONTEXT.md).
 - Shared space: one command adds a model to a GLM-anchored hub, checks both maps and runs
-  the drop-in test; GLM to Qwen through it answered 29 of 32 against 26 for the direct
+  the drop-in test; GLM to Qwen through it answered 27 of 32 against 26 for the direct
   linear translator it replaces: [shared space](evaluation/SHARED_SPACE_MEMBER.md),
   [guide](guides/SHARED_SPACE.md).
 - MCDMA recovers from an orphaned or stalled pull on the next pull, byte for byte, with no

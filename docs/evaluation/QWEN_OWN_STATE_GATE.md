@@ -22,9 +22,11 @@ When Qwen gets its own cache of a passage, attention rows and recurrent state to
 | Arm | Answer present | Output identical to text |
 | --- | --- | --- |
 | text | 23 of 24 | |
-| none | 1 of 24 | |
+| none | 0 of 24 | |
 | rows | 24 of 24 | 12 |
 | rows_state | 24 of 24 | 21 |
+
+Rescored on 25 September with `drift/eval/answer_match.py`. The first scoring gave none 1 of 24, crediting the key `hare` inside the word "shared".
 
 With both parts of its own cache Qwen reproduces the text arm's output in 21 of 24 questions, against 12 of 24 from rows alone. The advance uses Qwen's own layer code, so the path the cross-model state will take is qualified here.
 

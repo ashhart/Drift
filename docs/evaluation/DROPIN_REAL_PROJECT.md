@@ -14,6 +14,10 @@ A model joins work already in progress. Normally it must read the whole shared c
 - Translators: the loop's row stack and the reading-context state translator, unchanged.
 - Time to first token is measured from an empty cache, so the drift arm includes the head prefill, translation on the GPU, attaching the rows and advancing the state.
 
+## Scoring
+
+Answers are scored by `drift/eval/answer_match.py`: the value an answer states for a constant or a default is compared as a number, a function name must appear as a whole identifier outside the question's own message and path, and a def line must parse as callable as the source defines it. Every question table here was rescored with it on 25 September from the recorded result files, whose hashes are below. The first scoring compared keys by substring after normalisation: it credited a key found inside a longer name, number or the question's own message (`40` in `400`, `pages` in `_load_pages`), counted a correct quote of a constant written in hex or with underscores as wrong (`64_000` against the key 64000), and never found a def line longer than eight lines. Most first-scoring numbers moved by one or two; the no-memory arms lost the hits they had from repeating the question, and the second dev project moved most, since five of its questions ask for constants written with underscores.
+
 ## Code questions from this project
 
 `project_questions.py` reads modules of this repository with `ast` and writes questions whose answers are literally in the source: which function fails with a given error message, a parameter's default value. Answers are checked by exact containment after normalising case and punctuation. The contexts are the modules themselves, each under a header with its path.
@@ -23,13 +27,13 @@ Four contexts of 1,013 to 1,406 GLM tokens, 32 questions, within Qwen's 2,048-to
 | Arm | Correct | Time to first token, median | Tokens prefilled, median |
 | --- | --- | --- | --- |
 | text | 32 | 1.882 s | 1,413 |
-| no memory | 4 | | |
+| no memory | 0 | | |
 | Qwen's own cache | 32 | 0.404 s | 96 |
-| GLM's translated cache | 27 | 0.470 s | 96 |
-| GLM's translated rows alone | 27 | | |
-| GLM's translated state alone | 4 | | |
+| GLM's translated cache | 26 | 0.470 s | 96 |
+| GLM's translated rows alone | 25 | | |
+| GLM's translated state alone | 1 | | |
 
-The joining model answered 27 of 32 from GLM's cache while prefilling none of the project: its first token came 4.0 times sooner, after 96 prefilled tokens instead of 1,413. The five misses are real confusions between neighbouring functions with similar messages, such as `final_frontier` and `processed_frontier` in one module. On code the translated rows carry the answers; the translated state adds nothing here.
+The joining model answered 26 of 32 from GLM's cache while prefilling none of the project: its first token came 4.0 times sooner, after 96 prefilled tokens instead of 1,413. The six misses are real confusions between neighbouring functions with similar messages, such as `final_frontier` and `processed_frontier` in one module. On code the translated rows carry the answers; the translated state adds nothing here.
 
 An earlier run with a 48-token answer limit scored 26; five of its six misses were answers cut off while restating the long error message, so the limit was raised to 120.
 
@@ -68,7 +72,7 @@ Attaching a cache instead of reading works at this length: Qwen's own cache answ
 
 | Questions | Drift correct | Text correct | First token, Drift | First token, text |
 | --- | --- | --- | --- | --- |
-| short contexts, 32 | 27 | 32 | 0.41 s | 1.33 s |
+| short contexts, 32 | 26 | 32 | 0.41 s | 1.33 s |
 | long context, 70 | 42 | 69 | 0.95 s | 4.63 s |
 
 The first-token times are per question after the context's memory was pulled and translated once; counting that one-time cost as well, the joining model's first answer on the long context still starts about 3.4 times sooner. The export carries far more than the latents Qwen uses (KDA state pages, selector caches); the transfer is not the bottleneck at 49 Gbit/s.
@@ -83,17 +87,17 @@ A balanced long set: 25 questions over the 4,603-token context, no answer used m
 | --- | --- | --- | --- |
 | text | 24 of 25 | 25 of 25 | 25 of 25 |
 | Qwen's own cache | 25 of 25 | 25 of 25 | 25 of 25 |
-| GLM's translated rows and state | 19 of 25 | 16 of 25 | 13 of 25 |
-| GLM's translated rows alone | 17 of 25 | 13 of 25 | 10 of 25 |
-| no memory | 4 of 25 | 0 of 25 | 0 of 25 |
+| GLM's translated rows and state | 18 of 25 | 16 of 25 | 13 of 25 |
+| GLM's translated rows alone | 16 of 25 | 13 of 25 | 10 of 25 |
+| no memory | 0 of 25 | 0 of 25 | 0 of 25 |
 
 ## Translators fitted on code
 
-The forward translators were fitted on prose. Refitting them on code (`fit_state_translator.py` on 125 of this repository's own modules, none of the test modules, 133,957 aligned token pairs, GLM latents in the reading frame against Qwen's own rows and recurrent-layer inputs in the drop-in's layout) reached validation R-squared 0.63 for the rows and 0.36 for the state on the four held-out short contexts. On their 32 questions:
+The forward translators were fitted on prose. Refitting them on code (`fit_state_translator.py` on 125 of this repository's own modules, none of the test modules, 133,957 aligned token pairs, GLM latents in the reading frame against Qwen's own rows and recurrent-layer inputs in the drop-in's layout) reached validation R-squared 0.63 for the rows and 0.36 for the state on the four held-out short contexts. The spread gain these maps carry was fitted on the rows of those same four contexts, which their 32 questions then score, so the short-context numbers of every translator built on these maps are not fully held out; it is one scale per dimension, so the effect should be small. On their 32 questions:
 
 | Rows and state from | Correct |
 | --- | --- |
-| the loop's prose-fitted row stack and state translator | 27 |
+| the loop's prose-fitted row stack and state translator | 26 |
 | ridge maps fitted on code | 26 |
 
 A better-fitted linear map does not help: both land where the per-token translators always land. What a token means in its context is what gets lost, and a map that sees one token at a time cannot recover it.
@@ -108,7 +112,7 @@ In 3,000 steps (209 s on the Studio, 1,179,064 aligned rows) the reader raised v
 
 ### What squared error did to the rows
 
-On the 32 short questions the trained reader did far worse than the map it corrects: its rows alone answered 9 where the map's answer 27, and with the state 19 where the map's answer 26. The answers had the gist and lost the details. Qwen read the file header correctly, then decided the code came from some other fp8 module and could not find the exact error messages.
+On the 32 short questions the trained reader did far worse than the map it corrects: its rows alone answered 7 where the map's answer 27, and with the state 18 where the map's answer 26. The answers had the gist and lost the details. Qwen read the file header correctly, then decided the code came from some other fp8 module and could not find the exact error messages.
 
 Three suspects were ruled out. Unaligned positions: on these contexts 99.8% of GLM's tokens end on the same character as a Qwen token, so almost every row the reader writes was trained. A different export: the gate's GLM export of these contexts differs from the validation export at depth (layer 3 identical, layer 43 different by 17 to 21% relative), but both translators fit either export equally well. Lost token identity: matched against every true row in its context, each of the reader's K rows found its own token as often as the map's did, or more.
 
@@ -122,8 +126,8 @@ Budget 16,384, the code-fitted state map, GLM's export as the gates read it. The
 
 | Measure | text | Qwen's own cache | stack, rows and state | stack, rows | reader, rows and state | reader, rows |
 | --- | --- | --- | --- | --- | --- | --- |
-| short contexts, 32 questions | 32 | 32 | 27 | 27 | 29 | 28 |
-| balanced long set, 25 | 24 | 25 | 19 | 17 | 24 | 21 |
+| short contexts, 32 questions | 32 | 32 | 26 | 25 | 28 | 27 |
+| balanced long set, 25 | 24 | 25 | 18 | 16 | 24 | 21 |
 | def lines callable, 25 | 25 | 25 | 16 | 13 | 18 | 18 |
 | def lines exact, 25 | 25 | 25 | 13 | 10 | 18 | 18 |
 
@@ -176,10 +180,10 @@ The same drop-in as above on fresh exports: GLM read the five contexts again on 
 
 | Questions | Drift correct | Text correct | First token, Drift | First token, text |
 | --- | --- | --- | --- | --- |
-| short contexts, 32 | 28 | 32 | 0.41 s | 1.31 s |
+| short contexts, 32 | 27 | 32 | 0.41 s | 1.31 s |
 | long context, 70 | 66 | 69 | 0.97 s | 4.62 s |
 
-On the long context GLM's translated cache now answers 66 of 70 against text's 69, with the joining model's first token 4.8 times sooner after 95 prefilled tokens instead of 4,992. Counting the one-time pull, parse and translation (0.40 s), its first answer starts 3.4 times sooner. It answers all 19 questions whose answer is `decode`, where the stack answered 1; its four misses all ask for `remember`, a method of `ForeignPositionBank`, and name its neighbours `replay` or `rephase` instead. The first run used the prose-fitted state translator, so the rows and the state both changed between the two runs. A control gate separates them: the stack's rows with the code-fitted state answer 44 of the 70 long-context questions and 28 of the 32 short ones, against 42 and 27 with the prose-fitted state, so the state accounts for one or two answers and the reader for the rest.
+On the long context GLM's translated cache now answers 66 of 70 against text's 69, with the joining model's first token 4.8 times sooner after 95 prefilled tokens instead of 4,992. Counting the one-time pull, parse and translation (0.40 s), its first answer starts 3.4 times sooner. It answers all 19 questions whose answer is `decode`, where the stack answered 1; its four misses all ask for `remember`, a method of `ForeignPositionBank`, and name its neighbours `replay` or `rephase` instead. The first run used the prose-fitted state translator, so the rows and the state both changed between the two runs. A control gate separates them: the stack's rows with the code-fitted state answer 44 of the 70 long-context questions and 26 of the 32 short ones, against 42 and 26 with the prose-fitted state, so the state accounts for two answers on the long context and none on the short ones, and the reader for the rest.
 
 ### Stockledger with the reader
 
@@ -203,7 +207,7 @@ Two more fine-tuning phases of 125 updates each, same loss and learning rate. Th
 | Translator | Short contexts, 32 | Def lines, 25 | Balanced long set in windows, 25 |
 | --- | --- | --- | --- |
 | first phase | 31 / 30 | 23 / 25 | 24 / 25 |
-| second phase | 31 / 32 | 23 / 24 | 24 / 25 |
+| second phase | 30 / 32 | 23 / 24 | 24 / 25 |
 | average of the two | 32 / 32 | 24 / 25 | 24 / 25 |
 | third phase | 30 / 30 | 24 / 25 | 24 / 25 |
 | average of the average and the third phase | 32 / 32 | 23 / 25 | 24 / 25 |
@@ -221,19 +225,20 @@ Stockledger, rows / rows and state, greedy then three samples at 0.7:
 | text | 33 | 33 | 23 | 33 | 30.5 |
 
 A second dev project tests code none of these translators trained on: 40 code questions and 25 def lines over files of
-fsspec, urllib3, yaml, networkx, jinja2 and pytest, none of them in training or in the held-out set. Rows / rows and
-state:
+fsspec, urllib3, yaml, networkx, jinja2 and pytest. None of their code is in training or in the held-out set, though the
+Markdown training windows include the urllib3 and fsspec READMEs. Rows / rows and state:
 
 | Translator | Code questions, 40 | Def lines, 25 |
 | --- | --- | --- |
-| average of the first two phases | 33 / 35 | 18 / 20 |
-| the same, reading in windows of 3,072 tokens | 35 / 35 | 18 / 20 |
-| third phase | 34 / 35 | 20 / 22 |
-| average of the average and the third phase | 35 / 35 | 21 / 22 |
-| text | 35 | 22 |
+| average of the first two phases | 36 / 39 | 18 / 21 |
+| the same, reading in windows of 3,072 tokens | 38 / 38 | 18 / 21 |
+| third phase | 37 / 37 | 21 / 23 |
+| average of the average and the third phase | 38 / 38 | 22 / 23 |
+| text | 40 | 24 |
 
-With rows and state, the last average is level with text or ahead on every dev set, short contexts, def lines, the
-balanced long set and both halves of the second dev project, but it wrote two modules that pass nothing on Stockledger.
+With rows and state, the last average is level with text or ahead on the short contexts, def lines and the balanced
+long set, and two code questions and a def line short of it on the second dev project; it also wrote two modules that
+pass nothing on Stockledger.
 Every translator after the first phase wrote at least one; no text arm did. Modules written from the translated cache carry more
 comments than text's (60 to 111 comment lines against 24 to 61), and the failures are a module cut off at the answer
 limit, a `try` with no `except`, and validators that reject valid events.
@@ -252,9 +257,9 @@ Rows / rows and state:
 
 | Translator | Short contexts, 32 | Def lines, 25 | Balanced long set in windows, 25 | Second dev project, 40 and 25 |
 | --- | --- | --- | --- | --- |
-| average of the average and the third phase | 32 / 32 | 23 / 25 | 24 / 25 | 35 / 35 and 21 / 22 |
-| fourth phase | 28 / 30 | 23 / 24 | 24 / 25 | 34 / 33 and 21 / 21 |
-| text | 32 | 25 | 24 | 35 and 22 |
+| average of the average and the third phase | 32 / 32 | 23 / 25 | 24 / 25 | 38 / 38 and 22 / 23 |
+| fourth phase | 28 / 30 | 23 / 24 | 24 / 25 | 37 / 37 and 22 / 22 |
+| text | 32 | 25 | 24 | 40 and 24 |
 
 Stockledger, rows / rows and state, greedy then three samples at 0.7:
 
@@ -266,8 +271,8 @@ Stockledger, rows / rows and state, greedy then three samples at 0.7:
 
 The fourth phase's modules from rows and state passed 32 of the 33 checks on three seeds, one short of text. Its zero
 is a new kind of failure. The answer is the context's own stub of `validation.py`, copied whole: a docstring and
-`raise NotImplementedError`. On the questions it gave up six hits: two short contexts, a def line, and two code
-questions and a def line of the second dev project.
+`raise NotImplementedError`. On the questions it gave up five hits: two short contexts, a def line, and a code
+question and a def line of the second dev project.
 
 A rule written before the fourth phase's results picked the final translator from three candidates: the average of the
 first two phases, the average of the average and the third phase, and the fourth phase. The rule, `choose_final.py`,
@@ -275,7 +280,8 @@ is a private local file. It takes the most rows-and-state hits over the short co
 halves of the second dev project, among candidates whose rows-and-state Stockledger modules never pass 0 checks. If
 none qualifies, it takes the most hits outright. Held-out results play no part. Every candidate had a module at 0, the
 average of the first two phases on two seeds, so the rule fell back on hits: 139 for the average of the average and the
-third phase, 137 for the average of the first two phases and 133 for the fourth phase.
+third phase, 137 for the average of the first two phases and 133 for the fourth phase. Rescored with the corrected
+scorer they are 143, 142 and 138, in the same order.
 
 The average of the average and the third phase is the final translator. Its reader and state translator are the ones
 recorded below for the last average, and they are the GLM to Qwen files in the `translators-glm-qwen-experimental-v2`
@@ -297,7 +303,7 @@ The first run allowed 1,500 answer tokens, and four of the seven answers ran pas
 | GLM's translated state alone | 12 of 33 | 0.59 s | 168 |
 | no memory | 11 of 33 | 0.31 s | 168 |
 
-A joining model that attaches a cache writes a validator that passes every hidden check, 3.9 times sooner than reading the specification. GLM's translated cache carried most of the specification's rules: the module from translated rows passes 24 checks, where guessing passes 11. The rows-and-state module failed every check on a single character, `{line_number]` in an f-string, so it never compiled; it had also dropped dots from the event_id rule. Each arm is one greedy sample, so these are single observations.
+A joining model that attaches a cache writes a validator that passes every hidden check, 3.9 times sooner than reading the specification. A module that rejects every event passes 24 of the 33 checks, since most of them feed a bad event, so 24 shows little: the module from translated rows passes 24 because it rejects every valid event (see below), and guessing passes 11. The rows-and-state module failed every check on a single character, `{line_number]` in an f-string, so it never compiled; it had also dropped dots from the event_id rule. Each arm is one greedy sample, so these are single observations.
 
 Results SHA-256, private local copies: short contexts `62b05fcde75b864685d2fc72297a065ff5f43caacabc7e5406301c4070b99e11`; long context with the budget raised, first 30 questions, `8f70dc00ea4c06922ba349a164f2805a95a04af0a2f8192f9dc7398e2dfd8c22`; across MCDMA `db1ab4e69e5a4d4e5228ab4bc16086ad538e9c4b4df56412c00067c05796ec8c`; Stockledger answers `8b6fa4f06a2ae1cab5b86e3de945364135d49f16aeea21b7fb7afc322f74c027` and grades `2fdd983f5d17df61165927716b3546eaffc27e77044c8b24372fcdb9fe2c3291`; balanced long set `df96587fac52169502fae7a529bbba3637ea791b859c25f71234910620a83f89`; def lines `c02d8cc95159b865d323f37d9c20a31f9eb1f5ee8a48d78cb326a64a9ae05fd4`; prose stack and code ridge on the short contexts `ff9504c2793681a1d1c735efbe3b5b3a972935407d69e0d076e1873c430d784b` and `65379f7cf8256f4aeb490837a311b598ebb344693d6c67c956b8ca73474159dd`; long context with the budget as shipped, first 6 questions, `1b55fc8a5baf82ac2a967846ac30e9f57c591b9a5cb8a2288143cc5f7932754e`.
 

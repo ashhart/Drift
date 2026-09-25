@@ -69,13 +69,15 @@ Needles found, of five per context:
 
 | Context | None | Text | Same model | GLM to Qwen |
 | --- | --- | --- | --- | --- |
-| 32k | 1 | 5 | 5 | 5 |
-| 64k | 2 | 5 | 5 | 5 |
+| 32k | 0 | 5 | 5 | 5 |
+| 64k | 1 | 5 | 5 | 5 |
 | 128k | 3 | 5 | 5 | 5 |
 
 ## What it cannot show
 
-- The contexts are standard-library code, which the model knows: with no memory it named 1, 2 and 3 of the needles.
+- The contexts are standard-library code, which the model knows: with no memory it named 0, 1 and 3 of the needles.
+  These counts were rescored on 25 September with `drift/eval/answer_match.py`. The first scoring gave 1, 2 and 3: it
+  credited `register` from the echoed message "Can only register classes" and `__init__` inside "initialization".
   The needles show the attached caches are read, not that they carry what text carries; answer quality is measured on
   the drop-in, held-out and Stockledger sets.
 - Each context ran once. The joiners ran one after another in one process, which is a lower bound on what five

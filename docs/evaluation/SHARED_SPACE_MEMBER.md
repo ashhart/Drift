@@ -48,13 +48,13 @@ The 32 short-context questions:
 | Arm | Correct |
 | --- | --- |
 | text | 32 |
-| no memory | 4 |
-| GLM's rows through the shared space | 28 |
-| GLM's rows and state through the shared space | 29 |
+| no memory | 1 |
+| GLM's rows through the shared space | 27 |
+| GLM's rows and state through the shared space | 27 |
 | GLM's rows by the direct pairwise translator | 27 |
 | GLM's rows and state by the direct pairwise translator | 26 |
 
-The shared-space translator did as well as the pairwise one it would replace, a point or two better on these 32 questions. Both are linear maps. The contextual reader with its fine-tuned state answered all 32 ([DROPIN_REAL_PROJECT.md](DROPIN_REAL_PROJECT.md)), and a hub pair can be the linear start such a reader trains from.
+The shared-space translator did as well as the pairwise one it would replace: level from rows alone and one question better with the state. These counts were rescored on 25 September with `drift/eval/answer_match.py`; the first scoring gave the shared space 28 and 29 and no memory 4, by crediting answers that only repeated the question's message or wrote 400 for a default of 40. Both are linear maps. The contextual reader with its fine-tuned state answered all 32 ([DROPIN_REAL_PROJECT.md](DROPIN_REAL_PROJECT.md)), and a hub pair can be the linear start such a reader trains from.
 
 ## What it cannot show
 

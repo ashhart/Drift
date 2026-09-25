@@ -5,7 +5,7 @@ contexts both ways; the four directions that touch DeepSeek V4 carry a weak sign
 
 | Sender to receiver | Translator | Best gate result | Record |
 | --- | --- | --- | --- |
-| GLM to Qwen | contextual reader with answer-level fine-tuning | 32 of 32 short code questions, text 32; over MCDMA, 69 of 70 on a long context, text 70; a held-out project, 33 to 35 of 40, text 37 | [DROPIN_REAL_PROJECT.md](DROPIN_REAL_PROJECT.md), [HELD_OUT_PROJECT.md](HELD_OUT_PROJECT.md) |
+| GLM to Qwen | contextual reader with answer-level fine-tuning | 32 of 32 short code questions, text 32; over MCDMA, 69 of 70 on a long context, text 70; a held-out project with the final translator, 36 to 40 of 40, text 40 | [DROPIN_REAL_PROJECT.md](DROPIN_REAL_PROJECT.md), [HELD_OUT_PROJECT.md](HELD_OUT_PROJECT.md) |
 | Qwen to GLM | reverse contextual reader for the rows; per-token map for the state | 32 of 32 short code questions from rows alone, text 32; on held-out code 1 of 5, text 5; 24 of 24 prose questions with rows and state, text 23 | below, [TRANSLATED_STATE_DEVELOPMENT.md](TRANSLATED_STATE_DEVELOPMENT.md) |
 | DeepSeek to Qwen | per-token maps from DeepSeek's grouped entries, then answer-level training | 2 of 20, then 22 of 60 after training, text 58 of 60 | [DSV4_TRANSLATOR_DEVELOPMENT.md](DSV4_TRANSLATOR_DEVELOPMENT.md) |
 | DeepSeek to GLM | per-token maps from DeepSeek's grouped entries | 3 of 20 | [DSV4_TRANSLATOR_DEVELOPMENT.md](DSV4_TRANSLATOR_DEVELOPMENT.md) |
@@ -61,10 +61,12 @@ the Studio from Qwen's rows over the four contexts (`translate_passages.py`), on
 | text | 32 |
 | GLM's own rows | 32 |
 | GLM's own rows and state | 32 |
-| no memory | 3 |
-| Qwen's rows, prose-fitted stacked translator | 24 |
-| Qwen's rows, shared-space pair | 4 |
+| no memory | 0 |
+| Qwen's rows, prose-fitted stacked translator | 23 |
+| Qwen's rows, shared-space pair | 1 |
 | Qwen's rows, reverse contextual reader | 32 |
+
+Scored by `drift/eval/answer_match.py`, rescored on 25 September from the same result files; the first scoring gave no memory 3, the stacked translator 24 and the pair 4, by crediting answers that only repeated the question's message.
 
 The reverse reader is the forward reader turned around (`studio_train_context_reader.py --direction qwen-to-glm`): a
 four-layer bidirectional transformer over Qwen's rows for the whole context, correcting the shared-space pair, trained
@@ -72,8 +74,12 @@ on the forward reader's 1,919 windows for 6,000 steps (414 s), with GLM's spread
 1.25). Held-out R-squared rose from 0.528 to 0.584, and the share of translated latents nearest their own token's true
 latent from 0.81 to 0.86. It was not fine-tuned on answers. On the 32 questions it answered as text did; GLM's own rows
 answered 31 in the same run. The misses of the other two translators were mostly refusals, GLM saying it had no memory
-of the file the question names; the shared-space pair leaves GLM's side at the anchor's projection with no spread
-restored, which flattens GLM's attention as it did the forward reader's before its gain.
+of the file the question names; the shared-space pair's rows are flatter than GLM's own, which flattens GLM's attention as
+it did the forward reader's before its gain. The flattening comes from the sender's side: Qwen's encoder into the
+shared space is a ridge fit, which pulls its vectors toward the mean, and nothing restores their spread; the decoder
+gains are fitted on GLM's exact hub vectors. A synthetic check of the same fitting procedure gives rows with 0.72 of
+the target spread for Qwen to GLM and 0.81 for Qwen to DeepSeek, against 1.00 with GLM as the sender. A gain on the
+encoder side would restore it.
 
 Qwen's translated state could not be sent. The first attempt poisoned GLM's session and stopped its server: the state
 for a 1,518-token context is 34 layers of per-token inputs, 367 MB as float16, and the live receiver refuses any
