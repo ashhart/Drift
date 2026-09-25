@@ -37,7 +37,7 @@ def found(answer: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
         if not _DEF.match(line):
             continue
         text = line
-        for more in lines[i + 1:i + 8]:
+        for more in lines[i + 1:i + 200]:                              # a header spread over many lines, one parameter each
             if parse(text) is not None:
                 break
             text += " " + more.strip()

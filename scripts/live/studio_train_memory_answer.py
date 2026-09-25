@@ -28,6 +28,7 @@ import mlx.core as mx, mlx.nn as nn, mlx.optimizers as optim
 from tokenizers import Tokenizer
 from mlx_vlm.utils import load_model
 from omlx.engine.vlm import _force_qwen4_exp_sanitize_on_load
+from drift.eval.answer_match import matches
 from drift.serving import mlx_grad_compat
 mlx_grad_compat.apply()
 from drift.serving.mcdma_forward import validate_translation
@@ -231,10 +232,10 @@ def evaluate(corr, items, label):
     hits = {"memory": 0, "text": 0}
     for item in items:
         cache, start = student_cache(corr, args.val_latents, item["pid"])
-        hits["memory"] += item["answer"].lower() in tok.decode(generate(tail(item["question"]), cache, start, args.eval_tokens)).lower()
+        hits["memory"] += matches(item["answer"], item["question"], tok.decode(generate(tail(item["question"]), cache, start, args.eval_tokens)))
         key = (item["pid"], item["question"])
         if key not in TEXT_HITS:
-            TEXT_HITS[key] = item["answer"].lower() in tok.decode(generate(teacher_ids(item), lm.make_cache(), 0, args.eval_tokens)).lower()
+            TEXT_HITS[key] = matches(item["answer"], item["question"], tok.decode(generate(teacher_ids(item), lm.make_cache(), 0, args.eval_tokens)))
         hits["text"] += TEXT_HITS[key]
     result = {key: round(value / len(items), 3) for key, value in hits.items()}
     print(label, "answers", result, flush=True)

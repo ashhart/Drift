@@ -2,17 +2,12 @@
 from __future__ import annotations
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from drift.eval import signatures
+from drift.eval.answer_match import matches
 
 ARMS = ("text", "none", "rows", "rows_state", "t_rows", "t_rows_state", "t_state", "d_rows", "d_state", "d_rows_state")
-
-
-def norm(text: str) -> str:
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", text.lower()).split())
 
 
 def shared(a: str, b: str) -> int:
@@ -23,10 +18,8 @@ def shared(a: str, b: str) -> int:
 
 
 def hit(result: dict, arm: str) -> bool:
-    """A def-line answer is parsed and must be callable as the source defines it; any other answer must be contained."""
-    if result["answer"].lstrip().startswith(("def ", "async def ")):
-        return signatures.score(result[arm]["text"], result["answer"])["callable"]
-    return norm(result["answer"]) in norm(result[arm]["text"])
+    """Whether the arm's answer carries the key, by drift.eval.answer_match's rules for each kind of question."""
+    return matches(result["answer"], result.get("question", ""), result[arm]["text"])
 
 
 def score(results: list[dict]) -> dict:

@@ -27,6 +27,7 @@ import mlx.core as mx
 from mlx_vlm.utils import load_model
 from omlx.engine.vlm import _force_qwen4_exp_sanitize_on_load
 from tokenizers import Tokenizer
+from drift.eval.answer_match import matches
 from drift.serving.glm53_delta import read_latents_span, stitch
 from drift.serving.glm53_handoff import read_latents
 from drift.serving.handoffd_client import HandoffdClient
@@ -78,7 +79,6 @@ STOP = {tok.token_to_id("<|im_end|>"), tok.token_to_id("<|endoftext|>")}
 encode = lambda text: tok.encode(text, add_special_tokens=False).ids
 HEAD = encode(f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\n{FRAME}\n")
 tail = lambda question: encode(f"\n\n{question}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n")
-norm = lambda text: " ".join(re.sub(r"[^a-z0-9]+", " ", text.lower()).split())
 CONTEXT = ContextRows(args.context_reader, window=args.reader_window) if "glm" in ways else None
 if "glm" in ways:
     state = ridge_map.load(args.state)
@@ -155,7 +155,7 @@ with args.out.open("w") as sink:
                 first = time.time() - started
                 answer = generate(cache, logits, len(HEAD) + len(tail(q["question"])))
                 write({"context": ctx["id"], "way": "none", "id": q["id"], "first_s": round(first, 3), "prefill_tokens": len(HEAD) + len(tail(q["question"])),
-                       "hit": norm(q["answer"]) in norm(answer), "answer_text": answer})
+                       "hit": matches(q["answer"], q["question"], answer), "answer_text": answer})
                 del cache
         if "text" in ways:
             for q in questions:
@@ -165,7 +165,7 @@ with args.out.open("w") as sink:
                 first = time.time() - started
                 answer = generate(cache, logits, len(HEAD) + len(ids) + len(tail(q["question"])))
                 write({"context": ctx["id"], "way": "text", "id": q["id"], "first_s": round(first, 3), "prefill_tokens": len(HEAD) + len(ids) + len(tail(q["question"])),
-                       "hit": norm(q["answer"]) in norm(answer), "answer_text": answer})
+                       "hit": matches(q["answer"], q["question"], answer), "answer_text": answer})
                 del cache
         if "same" in ways:
             started = time.time()
@@ -182,7 +182,7 @@ with args.out.open("w") as sink:
                 cache, logits, attach_s, first = join(rows, len(ids), resident, q["question"])
                 answer = generate(cache, logits, len(HEAD) + len(ids) + len(tail(q["question"])))
                 write({"context": ctx["id"], "way": "same", "id": q["id"], "first_s": round(first, 3), "attach_s": round(attach_s, 3),
-                       "prefill_tokens": len(HEAD) + len(tail(q["question"])), "hit": norm(q["answer"]) in norm(answer), "answer_text": answer})
+                       "prefill_tokens": len(HEAD) + len(tail(q["question"])), "hit": matches(q["answer"], q["question"], answer), "answer_text": answer})
                 del cache
             del resident, rows
         if "glm" in ways and ctx["id"] in jobs:
@@ -223,7 +223,7 @@ with args.out.open("w") as sink:
                 cache, logits, attach_s, first = join(entries, n, template, q["question"])
                 answer = generate(cache, logits, len(HEAD) + n + len(tail(q["question"])))
                 write({"context": ctx["id"], "way": "glm", "id": q["id"], "first_s": round(first, 3), "attach_s": round(attach_s, 3),
-                       "prefill_tokens": len(HEAD) + len(tail(q["question"])), "hit": norm(q["answer"]) in norm(answer), "answer_text": answer})
+                       "prefill_tokens": len(HEAD) + len(tail(q["question"])), "hit": matches(q["answer"], q["question"], answer), "answer_text": answer})
                 del cache
             del template, entries, latents, features
             if not job.get("local"):
