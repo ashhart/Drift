@@ -4,28 +4,36 @@ import json
 import socket
 import socketserver
 from typing import Any
-from drift.runtime.service_protocol import Op, ServiceError, sign, verify
+from drift.runtime.service_protocol import Op, ServiceError, json_safe, sign, verify
 from drift.runtime.service_session import Session
+
+MAX_LINE = 1 << 20                                          # a longer line closes the connection before authentication
 
 
 class _Handler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
         session: Session = self.server.session          # type: ignore[attr-defined]
         secret: bytes = self.server.secret              # type: ignore[attr-defined]
-        for line in self.rfile:
+        while True:
+            line = self.rfile.readline(MAX_LINE + 1)
+            if not line or len(line) > MAX_LINE or not line.endswith(b"\n"):
+                return                                    # end of input, an oversize line or a cut-off one
             try:
                 request = json.loads(line)
-                if not isinstance(request, dict) or not verify(request, secret):
-                    return                                # close silently on auth failure
+                authentic = isinstance(request, dict) and verify(request, secret)
+            except Exception:                             # malformed, or a value the signature cannot encode
+                return
+            if not authentic:
+                return                                    # close silently on auth failure; the run is untouched
+            try:
                 response = {"id": request.get("id"), "ok": True, "result": session.handle(request)}
             except ServiceError as error:
-                response = {"id": request.get("id") if isinstance(request, dict) else None, "ok": False, "error": error.code}
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                return
+                response = {"id": request.get("id"), "ok": False, "error": error.code}
             except Exception:
                 response = {"id": request.get("id"), "ok": False, "error": "INTERNAL"}
                 if session.controller is not None:
                     session.controller.failed = True
+            response = json_safe(response)
             response["auth"] = sign(response, secret)
             self.wfile.write(json.dumps(response, sort_keys=True).encode() + b"\n")
             self.wfile.flush()

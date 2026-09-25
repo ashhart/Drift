@@ -46,7 +46,12 @@ function numberMap(value: unknown): Record<string, number> | undefined {
 	const out: Record<string, number> = {};
 	for (const key of Object.keys(value).sort()) {
 		const item = value[key];
-		if (!LAYER_KEY.test(key) || typeof item !== "number" || !Number.isFinite(item)) return undefined;
+		if (!LAYER_KEY.test(key)) return undefined;
+		if (item === null) {
+			out[key] = Number.NaN; // the service sends NaN and infinity as null; the board shows ?
+			continue;
+		}
+		if (typeof item !== "number" || !Number.isFinite(item)) return undefined;
 		out[key] = item;
 	}
 	return out;

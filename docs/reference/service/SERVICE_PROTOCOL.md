@@ -12,7 +12,12 @@ Newline-delimited JSON over TCP on `127.0.0.1` (loopback only). Every request an
 response is one JSON object per line. Every message carries `"auth"`: hex HMAC-SHA256
 over the canonical JSON of the message without the `auth` field, keyed with a
 per-session secret the owner gives to both sides out of band. Unauthenticated or
-malformed lines close the connection.
+malformed lines close the connection, and so does a line longer than 1 MiB or one with no
+final newline, before any authentication; a line whose signature cannot be computed, such as
+one holding an infinite number, counts as unauthenticated and leaves the run untouched. A
+response value that is NaN or infinite is sent as `null`, so the status's `nonfinite` flag
+reports a diverged run. Numbers are signed in JavaScript's shortest form, so a whole number
+of 1e16 or more signs as its shortest digits followed by zeros, as JavaScript prints it.
 
 ## Phases
 

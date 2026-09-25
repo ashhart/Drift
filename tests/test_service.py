@@ -129,3 +129,39 @@ def test_malformed_field_types_are_malformed_not_internal(service, manifest):
     status = client.call(Op.STATUS)["result"]
     assert status["phase"] == "STRICT" and status["poisoned"] is False
     assert client.call(Op.TICK, epochs=1)["ok"]
+
+
+def test_a_line_the_signature_cannot_encode_closes_without_poisoning_the_run(service, manifest):
+    srv, _ = service
+    client = Client(srv.server_address[1], SECRET)
+    client.call(Op.SETUP, manifest=str(manifest), task="build the parser", assignments={"A": "cli", "B": "tests"})
+    client.call(Op.START, checkpoint_every=2)
+    sock = socket.create_connection(("127.0.0.1", srv.server_address[1]), timeout=5)
+    sock.sendall(b'{"auth": "0", "op": 4, "x": 1e999}\n')                # infinity: the canonical form raises
+    assert sock.recv(10) == b""
+    sock.close()
+    assert client.call(Op.STATUS)["result"]["poisoned"] is False
+
+
+def test_a_line_longer_than_the_limit_closes_before_authentication(service):
+    from drift.runtime.service_transport import MAX_LINE
+    srv, _ = service
+    sock = socket.create_connection(("127.0.0.1", srv.server_address[1]), timeout=5)
+    try:
+        sock.sendall(b"x" * (MAX_LINE + 2))
+    except OSError:
+        pass
+    assert sock.recv(10) == b""
+    sock.close()
+
+
+def test_a_nonfinite_value_in_a_response_is_sent_as_null_and_still_signed(service):
+    srv, _ = service
+    srv.session.handle = lambda request: {"norm_drift": {"3": float("nan")}, "peak": [float("inf"), 1.5]}
+    assert Client(srv.server_address[1], SECRET).call(Op.STATUS)["result"] == {"norm_drift": {"3": None}, "peak": [None, 1.5]}
+
+
+def test_large_whole_numbers_are_signed_in_javascript_form():
+    assert js_number(2.0 ** 60) == "1152921504606847000" and js_number(1e16) == "10000000000000000"
+    assert js_number(9007199254740992.0) == "9007199254740992"
+    assert canonical_json({"n": 2 ** 60, "m": 7}) == b'{"m":7,"n":1152921504606847000}'

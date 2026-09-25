@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 import { canonicalJson, computeAuth, signMessage, verifyAuth } from "../src/protocol";
+import { renderNumber } from "../src/board";
 import { parseStatus } from "../src/status";
 
 describe("protocol", () => {
@@ -46,5 +47,23 @@ describe("protocol", () => {
 		expect(parseStatus({ ...good, members: [{ ...good.members[0], gate: { "3": "open sesame" } }] })).toBeUndefined();
 		expect(parseStatus({ ...good, mailbox: { counts: { "pending items": 0 } } })).toBeUndefined();
 		expect(parseStatus({ ...good, epoch: -1 })).toBeUndefined();
+	});
+
+	test("a diverged run's status keeps parsing: the service sends NaN and infinity as null, shown as ?", () => {
+		const diverged = {
+			phase: "STRICT", epoch: 2, poisoned: false,
+			members: [{
+				index: 0, writer: 1, epoch: 1, sequence: 2, source_position: 4, local_tokens: 4, mail_sent: 0,
+				foreign_tokens: 2, mail_foreign_tokens: 0, gate: { "3": "open" }, mass_mean: { "3": null, "7": 0.2 },
+			}],
+			mailbox: { counts: { pending: 0 } },
+			detectors: { nonfinite: true, norm_drift: { "3": null }, mass_oscillation: {} },
+			manifest_sha256: "a".repeat(64), last_checkpoint_sha256: null,
+		};
+		const status = parseStatus(diverged);
+		expect(status?.detectors.nonfinite).toBe(true);
+		expect(Number.isNaN(status?.members[0].massMean["3"])).toBe(true);
+		expect(renderNumber(status?.members[0].massMean["3"])).toBe("?");
+		expect(parseStatus({ ...diverged, detectors: { ...diverged.detectors, norm_drift: { "3": "NaN" } } })).toBeUndefined();
 	});
 });

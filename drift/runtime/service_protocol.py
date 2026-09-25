@@ -1,6 +1,7 @@
 """Typed service operations and canonical authentication."""
 from __future__ import annotations
 import hmac
+import math
 import json
 from enum import IntEnum
 from typing import Any, Mapping
@@ -30,7 +31,7 @@ def js_number(value: float) -> str:
     """ECMAScript Number::toString formatting, so both sides sign identical bytes."""
     if value != value or value in (float("inf"), float("-inf")):
         raise ValueError("nonfinite numbers are not serializable")
-    if value == int(value) and abs(value) < 1e21:
+    if value == int(value) and abs(value) < 1e16:           # below 1e16 the shortest digits are all the digits
         return str(int(value))
     text = repr(value)                      # shortest round-trip digits, like JS
     mantissa, _, exponent = text.partition("e")
@@ -53,11 +54,23 @@ def js_number(value: float) -> str:
 
 
 
+def json_safe(value: Any) -> Any:
+    """The value with every NaN or infinity replaced by null, which JSON and the signature can carry."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, Mapping):
+        return {k: json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    return value
+
+
+
 def _canonical(value: Any) -> str:
     if isinstance(value, bool) or value is None:
         return json.dumps(value)
     if isinstance(value, int):
-        return str(value)
+        return str(value) if abs(value) < 2 ** 53 else js_number(float(value))   # JavaScript reads it as a double
     if isinstance(value, float):
         return js_number(value)
     if isinstance(value, str):
