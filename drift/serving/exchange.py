@@ -9,15 +9,26 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Mapping
 import torch
 from safetensors.torch import load_file, save_file
 from drift.core.types import KV
 
+NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}")
+
+
+def checked_name(value) -> str:
+    """A session or entry name is one plain path component: no separators, no dot names, nothing hidden."""
+    if type(value) is not str or not NAME.fullmatch(value):
+        raise ValueError("exchange names are one plain path component")
+    return value
+
 
 def save_entries(directory: Path, name: str, entries: Mapping[int, KV | torch.Tensor], positions: torch.Tensor,
                  meta: Mapping[str, int | str]) -> Path:
+    name = checked_name(name)
     directory.mkdir(parents=True, exist_ok=True)
     tensors = {"positions": positions.detach().cpu().to(torch.int64).contiguous()}
     layout = {}
@@ -46,6 +57,7 @@ def save_entries(directory: Path, name: str, entries: Mapping[int, KV | torch.Te
 
 
 def load_entries(directory: Path, name: str, device: str | torch.device = "cpu") -> tuple[dict[int, KV | torch.Tensor], torch.Tensor, dict]:
+    name = checked_name(name)
     manifest = json.loads((directory / f"{name}.json").read_text())
     path = directory / f"{name}.safetensors"
     if hashlib.sha256(path.read_bytes()).hexdigest() != manifest["sha256"]:
@@ -66,4 +78,4 @@ def load_entries(directory: Path, name: str, device: str | torch.device = "cpu")
 
 
 def ready(directory: Path, name: str) -> bool:
-    return (directory / f"{name}.json").exists()
+    return (directory / f"{checked_name(name)}.json").exists()

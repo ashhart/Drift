@@ -33,7 +33,7 @@ import torch
 from vllm.distributed.kv_transfer.kv_connector.v1.base import KVConnectorBase_V1, KVConnectorMetadata, KVConnectorRole
 from drift.core.types import KV
 from drift.serving.core import LayerSpec, RopeSpec, inject_request, plan_request, shard_heads, tap_layer
-from drift.serving.exchange import load_entries, ready, save_entries
+from drift.serving.exchange import checked_name, load_entries, ready, save_entries
 
 if TYPE_CHECKING:
     from vllm.forward_context import ForwardContext
@@ -94,7 +94,12 @@ class DriftConnector(KVConnectorBase_V1):
     @staticmethod
     def _params(request: Any) -> dict:
         params = getattr(request, "kv_transfer_params", None) or {}
-        return params if isinstance(params, dict) and params.get("drift_session") else {}
+        if not isinstance(params, dict) or not params.get("drift_session"):
+            return {}
+        for key in ("drift_session", "drift_inject", "drift_tap"):
+            if params.get(key):
+                checked_name(params[key])
+        return params
 
     def get_num_new_matched_tokens(self, request: "Request", num_computed_tokens: int) -> tuple[int | None, bool]:
         params = self._params(request)

@@ -120,3 +120,24 @@ def test_proxy_rewrites_drift_chat_and_passes_everything_else_through(tmp_path, 
         assert status == 400
     finally:
         proxy.shutdown(); proxy.server_close()
+
+
+def test_proxy_refuses_drift_names_that_leave_the_exchange_root(tmp_path, upstream):
+    url, seen = upstream
+    save_entries(tmp_path / "s1" / "inject", "mem", {1: torch.randn(4, 10)}, torch.arange(4), {})
+    (tmp_path / "root").mkdir()
+    proxy = serve("127.0.0.1", 0, url, tmp_path / "root", placeholder_id=99)
+    threading.Thread(target=proxy.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{proxy.server_address[1]}"
+    messages = [{"role": "user", "content": "hi"}]
+    try:
+        for drift in ({"session": "../s1", "inject": "mem"}, {"session": "s1", "inject": "../../s1/inject/mem"},
+                      {"session": "s1", "tap": "../t"}, {"session": ".", "tap": "t"}, {"session": 7}, "s1", ["s1"]):
+            status, err = call(base + "/v1/chat/completions", {"model": "glm", "messages": messages, "drift": drift})
+            assert status == 400 and "drift" in err["error"], drift
+        assert all(path != "/v1/completions" for path, _, _ in seen)
+    finally:
+        proxy.shutdown(); proxy.server_close()
+    for name in ("../x", "a/b", ".hidden", "", "x" * 97):
+        with pytest.raises(ValueError, match="path component"):
+            save_entries(tmp_path / "root", name, {1: torch.randn(4, 10)}, torch.arange(4), {})
