@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from drift.serving.exchange import checked_name
 
 PASS_THROUGH = ("temperature", "top_p", "top_k", "max_tokens", "stop", "seed", "presence_penalty", "frequency_penalty", "n", "logprobs")
 
@@ -75,8 +76,10 @@ def build_handler(upstream: str, exchange_root: Path, placeholder_id: int, timeo
             self._send(200, json.dumps(payload).encode())
 
         def _drift_chat(self, body: dict, drift: dict) -> dict:
-            session = str(drift["session"])
-            inject, tap = drift.get("inject"), drift.get("tap")
+            if not isinstance(drift, dict):
+                raise ValueError("the drift field is an object with a session and entry names")
+            session = checked_name(drift["session"])
+            inject, tap = (checked_name(drift[key]) if drift.get(key) else None for key in ("inject", "tap"))
             if body.get("stream"):
                 raise ValueError("streaming is not supported for drift requests yet")
             entries = 0

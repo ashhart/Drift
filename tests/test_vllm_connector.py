@@ -122,6 +122,21 @@ def test_stock_requests_and_bad_requests(connector_module, tmp_path):
     assert meta.requests == []
 
 
+def test_names_that_leave_the_exchange_root_are_refused(connector_module, tmp_path):
+    root = tmp_path / "exchange"
+    scheduler, worker = make(connector_module, root)
+    caches = {"L3": torch.randn(8, 2, BLOCK, 2, 8), "L7": torch.randn(8, 2, BLOCK, 2, 8)}
+    for session, tap in (("../outside", "t"), ("s", "../../t"), ("s/../../outside", "t")):
+        req = request("r", [5, 6, 7, 8], drift_session=session, drift_tap=tap)
+        with pytest.raises(ValueError, match="path component"):
+            scheduler.get_num_new_matched_tokens(req, 0)
+        with pytest.raises(ValueError, match="path component"):
+            run_step(scheduler, worker, req, [2], caches, 0)
+    assert sorted(p.name for p in tmp_path.rglob("*.json")) == []
+    with pytest.raises(ValueError, match="path component"):
+        scheduler.get_num_new_matched_tokens(request("r", [PAD] * 4 + [1], drift_session="s", drift_inject="../../mem"), 0)
+
+
 def test_mla_layout_and_quantized_cache_refusal(connector_module, tmp_path):
     from drift.serving.exchange import load_entries, save_entries
     scheduler, worker = make(connector_module, tmp_path, layout="mla")
